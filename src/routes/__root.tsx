@@ -11,6 +11,9 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { StoreProvider, useStore } from "@/lib/store";
+import { Toaster } from "@/components/ui/sonner";
+
 
 function NotFoundComponent() {
   return (
@@ -77,19 +80,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { name: "author", content: "Domicilios Nubex" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: appCss,
+        href: "https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap",
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
@@ -102,7 +103,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <head>
         <HeadContent />
       </head>
@@ -119,8 +120,69 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <StoreProvider>
+        <SiteHeader />
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+        <SiteFooter />
+        <Toaster position="top-center" richColors />
+      </StoreProvider>
     </QueryClientProvider>
   );
 }
+
+function SiteHeader() {
+  return (
+    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur">
+      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4">
+        <Link to="/" className="flex items-center gap-2">
+          <span className="hero-gradient grid size-9 place-items-center rounded-xl text-lg shadow-sm">
+            🛵
+          </span>
+          <span className="leading-tight">
+            <span className="block font-display text-sm font-extrabold uppercase tracking-tight">
+              Domicilios Nubex
+            </span>
+            <span className="block text-[11px] text-muted-foreground">Pitalito, Huila</span>
+          </span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/admin"
+            className="rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            Admin
+          </Link>
+          <CartButton />
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function CartButton() {
+  const { itemCount } = useStore();
+  return (
+    <Link
+      to="/checkout"
+      className="relative inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
+    >
+      🛒 Carrito
+      {itemCount > 0 && (
+        <span className="grid min-w-5 place-items-center rounded-full bg-background px-1 text-[11px] font-extrabold text-primary">
+          {itemCount}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer className="mt-16 border-t border-border/70 py-8 text-center text-xs text-muted-foreground">
+      <p className="font-semibold text-foreground">Domicilios Nubex · Pitalito, Huila</p>
+      <p className="mt-1">Pedidos por WhatsApp · Domicilio fijo $6.000 COP</p>
+    </footer>
+  );
+}
+
