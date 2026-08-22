@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { motion } from "motion/react";
 import { useStore } from "@/lib/store";
-import { cop } from "@/lib/format";
-import { DELIVERY_FEE } from "@/data/demo";
-import { NubexLogo } from "@/components/NubexLogo";
+import { ParallaxHero } from "@/components/ParallaxHero";
+import { ParallaxCard } from "@/components/ParallaxCard";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,6 +29,7 @@ function Home() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todos");
   const [onlyOpen, setOnlyOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const categories = useMemo(
     () => ["Todos", ...Array.from(new Set(businesses.map((b) => b.category)))],
@@ -41,128 +42,171 @@ function Home() {
     return b.name.toLowerCase().includes(query.trim().toLowerCase());
   });
 
+  const handleSearchFocus = () => {
+    searchInputRef.current?.focus();
+    searchInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   return (
-    <main className="mx-auto max-w-5xl px-4 pb-10">
-      <section className="hero-gradient relative overflow-hidden mt-4 rounded-3xl px-5 py-8 text-primary-foreground shadow-[var(--shadow-lift)] sm:px-8 sm:py-10">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="max-w-xl">
-            <div className="inline-flex items-center gap-2 rounded-full bg-black/30 backdrop-blur px-3 py-1 text-xs font-semibold tracking-wide text-cyan-200 border border-cyan-400/20">
-              <span className="inline-block size-2 rounded-full bg-[#00AEFF] animate-ping" />
-              Pitalito · Huila · Domicilios al instante
-            </div>
-            <h1 className="mt-3 text-3xl font-extrabold leading-tight sm:text-4xl text-white">
-              Tu comida favorita llega en minutos con{" "}
-              <span className="bg-gradient-to-r from-white via-cyan-200 to-[#38BDF8] bg-clip-text text-transparent">
-                Domicilios Nubex
-              </span>
-            </h1>
-            <p className="mt-3 max-w-md text-sm text-cyan-100/90 leading-relaxed">
-              Elige tu restaurante aliado, arma el pedido y confírmalo por WhatsApp. Domicilio fijo
-              de <strong className="text-white font-bold">{cop(DELIVERY_FEE)}</strong> en toda la
-              ciudad.
-            </p>
-          </div>
+    <main className="mx-auto max-w-5xl px-4 pb-12 overflow-hidden">
+      {/* 3D Multi-Layer Parallax Hero */}
+      <ParallaxHero onSearchFocus={handleSearchFocus} />
 
-          <div className="hidden sm:flex flex-col items-center justify-center p-5 rounded-2xl bg-black/25 backdrop-blur-md border border-cyan-400/20 shadow-inner">
-            <NubexLogo size="lg" subtitleText="Pitalito, Huila" />
-            <span className="mt-2 text-[11px] text-cyan-200/80 font-medium">
-              Cobertura en todo Pitalito
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-6 space-y-3">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar restaurante o negocio…"
-          className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
-        />
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          {categories.map((c) => (
+      {/* Filter and Search Bar with subtle float transition */}
+      <motion.section
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.15 }}
+        className="mt-6 space-y-3"
+      >
+        <div className="relative">
+          <input
+            ref={searchInputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar restaurante, comida o negocio…"
+            className="w-full rounded-2xl border border-border/80 bg-card/80 backdrop-blur-md px-4 py-3.5 pl-11 text-sm shadow-sm outline-none placeholder:text-muted-foreground focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 transition-all"
+          />
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">🔍</span>
+          {query && (
             <button
+              onClick={() => setQuery("")}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-full size-6 flex items-center justify-center text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none">
+          {categories.map((c) => (
+            <motion.button
               key={c}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setCategory(c)}
-              className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition-colors ${
+              className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition-all ${
                 c === category
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground"
+                  ? "border-cyan-400 bg-cyan-500 text-black shadow-md shadow-cyan-500/20 font-black"
+                  : "border-border bg-card/80 text-muted-foreground hover:text-foreground hover:border-cyan-400/50"
               }`}
             >
               {c}
-            </button>
+            </motion.button>
           ))}
-          <button
+          <motion.button
+            whileTap={{ scale: 0.95 }}
             onClick={() => setOnlyOpen((v) => !v)}
-            className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition-colors ${
+            className={`shrink-0 rounded-full border px-4 py-2 text-xs font-bold transition-all ${
               onlyOpen
-                ? "border-success bg-success text-success-foreground"
-                : "border-border bg-card text-muted-foreground hover:text-foreground"
+                ? "border-emerald-400 bg-emerald-500 text-black font-black shadow-md shadow-emerald-500/20"
+                : "border-border bg-card/80 text-muted-foreground hover:text-foreground hover:border-emerald-400/50"
             }`}
           >
             Solo abiertos
-          </button>
+          </motion.button>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="mt-6 grid gap-3 sm:grid-cols-2">
-        <h2 className="sr-only">Negocios aliados</h2>
-        {list.map((b) => {
-          const count = products.filter((p) => p.businessId === b.id && p.active).length;
-          return (
-            <Link
-              key={b.id}
-              to="/restaurante/$slug"
-              params={{ slug: b.slug }}
-              className="surface-card lift-hover flex items-center gap-4 p-4"
-            >
-              {b.logoUrl ? (
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-2xl border border-border">
-                  <img
-                    src={b.logoUrl}
-                    alt={b.name}
-                    className="size-full object-cover"
-                    style={{ opacity: b.active ? 1 : 0.5 }}
-                  />
-                  <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/60 px-1 text-[10px]">
-                    {b.emoji}
-                  </span>
-                </div>
-              ) : (
-                <span
-                  className="grid size-14 shrink-0 place-items-center rounded-2xl text-2xl"
-                  style={{ backgroundColor: b.color, opacity: b.active ? 1 : 0.5 }}
-                >
-                  {b.emoji}
-                </span>
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="truncate font-display font-bold">{b.name}</span>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                      b.active
-                        ? "bg-accent text-accent-foreground"
-                        : "bg-muted text-muted-foreground"
-                    }`}
+      {/* Grid of Partner Restaurants with 3D Parallax Tilt Cards */}
+      <section className="mt-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-display text-base font-extrabold text-white flex items-center gap-2">
+            <span>Restaurantes Aliados</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+              {list.length}
+            </span>
+          </h2>
+          <span className="text-xs text-cyan-400/80 font-medium">
+            Tarifa fija de domicilio $6.000
+          </span>
+        </div>
+
+        <motion.div layout className="grid gap-3.5 sm:grid-cols-2">
+          {list.map((b, index) => {
+            const count = products.filter((p) => p.businessId === b.id && p.active).length;
+            return (
+              <motion.div
+                key={b.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: index * 0.05 }}
+              >
+                <ParallaxCard tiltIntensity={5}>
+                  <Link
+                    to="/restaurante/$slug"
+                    params={{ slug: b.slug }}
+                    className="surface-card flex items-center gap-4 p-4 size-full group relative overflow-hidden border border-border/80 hover:border-cyan-400/40 transition-colors"
                   >
-                    {b.active ? "Abierto" : "Pausado"}
-                  </span>
-                </span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  {b.category} · {count} productos
-                </span>
-                <span className="mt-1 block text-xs text-muted-foreground">🕒 {b.schedule}</span>
-              </span>
-              <span className="text-lg text-muted-foreground">›</span>
-            </Link>
-          );
-        })}
+                    {/* Restaurant Logo / Visual Avatar */}
+                    {b.logoUrl ? (
+                      <div className="relative size-15 shrink-0 overflow-hidden rounded-2xl border border-border shadow-sm group-hover:scale-105 transition-transform duration-300">
+                        <img
+                          src={b.logoUrl}
+                          alt={b.name}
+                          className="size-full object-cover"
+                          style={{ opacity: b.active ? 1 : 0.5 }}
+                        />
+                        <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/70 px-1.5 py-0.5 text-[10px]">
+                          {b.emoji}
+                        </span>
+                      </div>
+                    ) : (
+                      <span
+                        className="grid size-15 shrink-0 place-items-center rounded-2xl text-2xl shadow-inner group-hover:scale-105 transition-transform duration-300"
+                        style={{ backgroundColor: b.color, opacity: b.active ? 1 : 0.5 }}
+                      >
+                        {b.emoji}
+                      </span>
+                    )}
+
+                    {/* Restaurant Info */}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="truncate font-display font-extrabold text-sm sm:text-base text-white group-hover:text-cyan-300 transition-colors">
+                          {b.name}
+                        </span>
+                        <span
+                          className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                            b.active
+                              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                              : "bg-muted text-muted-foreground border border-border"
+                          }`}
+                        >
+                          {b.active ? "Abierto" : "Pausado"}
+                        </span>
+                      </span>
+
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {b.category} · {count} productos disponibles
+                      </span>
+
+                      <span className="mt-1.5 flex items-center gap-1.5 text-xs text-cyan-200/70 font-medium">
+                        <span>🕒 {b.schedule}</span>
+                      </span>
+                    </span>
+
+                    <span className="text-xl text-muted-foreground group-hover:text-cyan-400 group-hover:translate-x-1 transition-all">
+                      ›
+                    </span>
+                  </Link>
+                </ParallaxCard>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+
         {list.length === 0 && (
-          <p className="surface-card p-6 text-center text-sm text-muted-foreground">
-            No encontramos negocios con esos filtros.
-          </p>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="surface-card p-8 text-center text-sm text-muted-foreground rounded-2xl border border-dashed border-border mt-3"
+          >
+            <p className="text-2xl mb-2">🍽️</p>
+            <p className="font-semibold text-white">No encontramos negocios con esos filtros</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Prueba con otra palabra o categoría.
+            </p>
+          </motion.div>
         )}
       </section>
     </main>
