@@ -1,16 +1,11 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   demoBusinesses,
   demoProducts,
+  demoOrders,
   type Business,
   type Product,
+  type OrderLog,
 } from "@/data/demo";
 
 export type CartItem = {
@@ -25,6 +20,7 @@ export type CartItem = {
 type StoreValue = {
   businesses: Business[];
   products: Product[];
+  orders: OrderLog[];
   cart: CartItem[];
   cartBusiness: Business | null;
   subtotal: number;
@@ -34,6 +30,7 @@ type StoreValue = {
   toggleBusiness: (id: string) => void;
   saveProduct: (p: Product) => void;
   removeProduct: (id: string) => void;
+  recordOrder: (o: OrderLog) => void;
   addToCart: (item: CartItem) => void;
   setQty: (productId: string, qty: number) => void;
   setNote: (productId: string, note: string) => void;
@@ -42,9 +39,14 @@ type StoreValue = {
 
 const StoreContext = createContext<StoreValue | null>(null);
 
-const KEY = "nubex-demo-v1";
+const KEY = "nubex-demo-v2";
 
-type Persisted = { businesses: Business[]; products: Product[]; cart: CartItem[] };
+type Persisted = {
+  businesses: Business[];
+  products: Product[];
+  cart: CartItem[];
+  orders?: OrderLog[];
+};
 
 function load(): Persisted | null {
   if (typeof window === "undefined") return null;
@@ -59,6 +61,7 @@ function load(): Persisted | null {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [businesses, setBusinesses] = useState<Business[]>(demoBusinesses);
   const [products, setProducts] = useState<Product[]>(demoProducts);
+  const [orders, setOrders] = useState<OrderLog[]>(demoOrders);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
@@ -68,14 +71,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setBusinesses(saved.businesses ?? demoBusinesses);
       setProducts(saved.products ?? demoProducts);
       setCart(saved.cart ?? []);
+      setOrders(saved.orders && saved.orders.length > 0 ? saved.orders : demoOrders);
     }
     setHydrated(true);
   }, []);
 
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(KEY, JSON.stringify({ businesses, products, cart }));
-  }, [hydrated, businesses, products, cart]);
+    window.localStorage.setItem(KEY, JSON.stringify({ businesses, products, cart, orders }));
+  }, [hydrated, businesses, products, cart, orders]);
 
   const value = useMemo<StoreValue>(() => {
     const subtotal = cart.reduce((acc, i) => acc + i.price * i.qty, 0);
@@ -86,6 +90,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return {
       businesses,
       products,
+      orders,
       cart,
       cartBusiness,
       subtotal,
@@ -105,6 +110,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           prev.some((x) => x.id === p.id) ? prev.map((x) => (x.id === p.id ? p : x)) : [...prev, p],
         ),
       removeProduct: (id) => setProducts((prev) => prev.filter((p) => p.id !== id)),
+      recordOrder: (o) => setOrders((prev) => [o, ...prev]),
       addToCart: (item) =>
         setCart((prev) => {
           const differentBusiness = prev[0] && prev[0].businessId !== item.businessId;
@@ -129,7 +135,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setCart((prev) => prev.map((i) => (i.productId === productId ? { ...i, note } : i))),
       clearCart: () => setCart([]),
     };
-  }, [businesses, products, cart]);
+  }, [businesses, products, orders, cart]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

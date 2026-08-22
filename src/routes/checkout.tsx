@@ -26,7 +26,7 @@ export const Route = createFileRoute("/checkout")({
 });
 
 function Checkout() {
-  const { cart, cartBusiness, subtotal, setQty, setNote, clearCart } = useStore();
+  const { cart, cartBusiness, subtotal, setQty, setNote, clearCart, recordOrder } = useStore();
   const [data, setData] = useState<CheckoutData>({
     name: "",
     address: "",
@@ -35,6 +35,12 @@ function Checkout() {
     payment: "Efectivo",
     reference: "",
   });
+  const [sentOrder, setSentOrder] = useState<{
+    code: string;
+    businessName: string;
+    waUrl: string;
+    total: number;
+  } | null>(null);
 
   const deliveryFee = cartBusiness?.deliveryFee ?? DELIVERY_FEE;
   const total = subtotal + deliveryFee;
@@ -43,7 +49,12 @@ function Checkout() {
 
   const submit = () => {
     if (!cartBusiness || cart.length === 0) return;
-    if (!data.name.trim() || !data.address.trim() || !data.neighborhood.trim() || !data.phone.trim()) {
+    if (
+      !data.name.trim() ||
+      !data.address.trim() ||
+      !data.neighborhood.trim() ||
+      !data.phone.trim()
+    ) {
       toast.error("Completa nombre, dirección, barrio y teléfono.");
       return;
     }
@@ -56,9 +67,72 @@ function Checkout() {
       deliveryFee,
       data,
     });
-    window.open(waLink(DISPATCH_WHATSAPP, message), "_blank", "noopener");
-    toast.success(`Pedido ${code} enviado a la central de despacho`);
+    const waUrl = waLink(DISPATCH_WHATSAPP, message);
+
+    // Save order in history log
+    const itemsSummary = cart.map((i) => `${i.qty} x ${i.name}`).join(", ");
+    recordOrder({
+      id: `ord-${Date.now()}`,
+      code,
+      businessId: cartBusiness.id,
+      businessName: cartBusiness.name,
+      customerName: data.name,
+      customerPhone: data.phone,
+      neighborhood: data.neighborhood,
+      address: data.address,
+      payment: data.payment,
+      itemsSummary,
+      subtotal,
+      deliveryFee,
+      total,
+      createdAt: new Date().toISOString(),
+    });
+
+    window.open(waUrl, "_blank", "noopener");
+
+    // Clear cart immediately so the user can place a new order
+    clearCart();
+    setSentOrder({
+      code,
+      businessName: cartBusiness.name,
+      waUrl,
+      total,
+    });
+    toast.success(`¡Pedido ${code} enviado! Tu carrito ha sido limpiado.`);
   };
+
+  if (sentOrder) {
+    return (
+      <main className="mx-auto max-w-md px-4 py-16 text-center">
+        <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-success/20 text-3xl">
+          ✅
+        </div>
+        <h1 className="mt-4 text-2xl font-extrabold">¡Pedido Enviado!</h1>
+        <p className="mt-1 text-sm font-semibold text-primary">Código: {sentOrder.code}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Tu pedido en <strong>{sentOrder.businessName}</strong> por valor de{" "}
+          <strong>{cop(sentOrder.total)}</strong> fue enviado a la central de despacho por WhatsApp.
+        </p>
+        <div className="mt-6 flex flex-col gap-3">
+          <Link
+            to="/"
+            onClick={() => setSentOrder(null)}
+            className="inline-block rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
+          >
+            Hacer un nuevo pedido
+          </Link>
+          <a
+            href={sentOrder.waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block rounded-xl border border-border bg-card px-5 py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+          >
+            Reabrir WhatsApp del pedido
+          </a>
+        </div>
+      </main>
+    );
+  }
 
   if (cart.length === 0) {
     return (
@@ -143,7 +217,12 @@ function Checkout() {
         <h2 className="font-display text-sm font-bold uppercase tracking-wide text-muted-foreground">
           Datos de entrega
         </h2>
-        <Field label="Nombre del cliente" value={data.name} onChange={field("name")} placeholder="Ej. Laura Gómez" />
+        <Field
+          label="Nombre del cliente"
+          value={data.name}
+          onChange={field("name")}
+          placeholder="Ej. Laura Gómez"
+        />
         <Field
           label="Dirección exacta"
           value={data.address}

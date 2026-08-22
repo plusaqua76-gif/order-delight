@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { cop } from "@/lib/format";
 import { DELIVERY_FEE } from "@/data/demo";
+import { NubexLogo } from "@/components/NubexLogo";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -42,17 +43,33 @@ function Home() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 pb-10">
-      <section className="hero-gradient mt-4 rounded-3xl px-5 py-8 text-primary-foreground shadow-[var(--shadow-lift)] sm:px-8 sm:py-12">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] opacity-90">
-          Pitalito · Huila
-        </p>
-        <h1 className="mt-2 max-w-xl text-3xl font-extrabold leading-tight sm:text-4xl">
-          Tu antojo llega en minutos con Domicilios Nubex
-        </h1>
-        <p className="mt-3 max-w-md text-sm opacity-95">
-          Elige tu restaurante aliado, arma el pedido y confírmalo por WhatsApp. Domicilio fijo de{" "}
-          {cop(DELIVERY_FEE)} en toda la ciudad.
-        </p>
+      <section className="hero-gradient relative overflow-hidden mt-4 rounded-3xl px-5 py-8 text-primary-foreground shadow-[var(--shadow-lift)] sm:px-8 sm:py-10">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-2 rounded-full bg-black/30 backdrop-blur px-3 py-1 text-xs font-semibold tracking-wide text-cyan-200 border border-cyan-400/20">
+              <span className="inline-block size-2 rounded-full bg-[#00AEFF] animate-ping" />
+              Pitalito · Huila · Domicilios al instante
+            </div>
+            <h1 className="mt-3 text-3xl font-extrabold leading-tight sm:text-4xl text-white">
+              Tu comida favorita llega en minutos con{" "}
+              <span className="bg-gradient-to-r from-white via-cyan-200 to-[#38BDF8] bg-clip-text text-transparent">
+                Domicilios Nubex
+              </span>
+            </h1>
+            <p className="mt-3 max-w-md text-sm text-cyan-100/90 leading-relaxed">
+              Elige tu restaurante aliado, arma el pedido y confírmalo por WhatsApp. Domicilio fijo
+              de <strong className="text-white font-bold">{cop(DELIVERY_FEE)}</strong> en toda la
+              ciudad.
+            </p>
+          </div>
+
+          <div className="hidden sm:flex flex-col items-center justify-center p-5 rounded-2xl bg-black/25 backdrop-blur-md border border-cyan-400/20 shadow-inner">
+            <NubexLogo size="lg" subtitleText="Pitalito, Huila" />
+            <span className="mt-2 text-[11px] text-cyan-200/80 font-medium">
+              Cobertura en todo Pitalito
+            </span>
+          </div>
+        </div>
       </section>
 
       <section className="mt-6 space-y-3">

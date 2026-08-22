@@ -13,7 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { StoreProvider, useStore } from "@/lib/store";
 import { Toaster } from "@/components/ui/sonner";
-
+import { NubexLogo } from "@/components/NubexLogo";
 
 function NotFoundComponent() {
   return (
@@ -133,18 +133,10 @@ function RootComponent() {
 
 function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="hero-gradient grid size-9 place-items-center rounded-xl text-lg shadow-sm">
-            🛵
-          </span>
-          <span className="leading-tight">
-            <span className="block font-display text-sm font-extrabold uppercase tracking-tight">
-              Domicilios Nubex
-            </span>
-            <span className="block text-[11px] text-muted-foreground">Pitalito, Huila</span>
-          </span>
+        <Link to="/" className="group flex items-center transition-transform hover:scale-[1.02]">
+          <NubexLogo size="md" subtitleText="Pitalito, Huila" />
         </Link>
         <div className="flex items-center gap-2">
           <Link
@@ -180,9 +172,13 @@ function CartButton() {
 function SiteFooter() {
   return (
     <footer className="mt-16 border-t border-border/70 py-8 text-center text-xs text-muted-foreground">
-      <p className="font-semibold text-foreground">Domicilios Nubex · Pitalito, Huila</p>
-      <p className="mt-1">Pedidos por WhatsApp · Domicilio fijo $6.000 COP</p>
+      <div className="mx-auto flex flex-col items-center justify-center gap-2">
+        <NubexLogo size="sm" showSubtitle={false} />
+        <p className="font-semibold text-foreground">Domicilios Nubex · Pitalito, Huila</p>
+        <p className="text-muted-foreground">
+          Pedidos directos por WhatsApp · Tarifa fija de $6.000 COP
+        </p>
+      </div>
     </footer>
   );
 }
-

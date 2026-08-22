@@ -1,0 +1,6 @@
+{
+  "name": "Domicilios Nubex",
+  "description": "Plataforma de domicilios para restaurantes y comercios aliados en Pitalito, Huila con pedidos directos por WhatsApp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
