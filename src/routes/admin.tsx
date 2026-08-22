@@ -40,6 +40,7 @@ const emptyBusiness = (): Business => ({
   name: "",
   category: "",
   emoji: "🍽️",
+  logoUrl: "",
   color: "var(--brand-1)",
   schedule: "",
   phone: "",
@@ -535,6 +536,26 @@ function Admin() {
                 value={bForm.emoji}
                 onChange={(v) => setBForm({ ...bForm, emoji: v })}
               />
+              <Row
+                label="URL del Logo / Imagen del Restaurante (opcional)"
+                value={bForm.logoUrl || ""}
+                onChange={(v) => setBForm({ ...bForm, logoUrl: v })}
+              />
+              {bForm.logoUrl && (
+                <div className="flex items-center gap-2.5 rounded-xl border border-border/70 bg-card p-2">
+                  <img
+                    src={bForm.logoUrl}
+                    alt="Vista previa del logo"
+                    className="size-10 rounded-lg object-cover border border-border"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                  <span className="text-[11px] text-muted-foreground">
+                    Vista previa del logo del restaurante
+                  </span>
+                </div>
+              )}
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={() => {
@@ -559,9 +580,17 @@ function Admin() {
 
           {businesses.map((b) => (
             <div key={b.id} className="surface-card flex items-center gap-3 p-4">
-              <span className="grid size-11 place-items-center rounded-xl bg-secondary text-xl">
-                {b.emoji}
-              </span>
+              {b.logoUrl ? (
+                <img
+                  src={b.logoUrl}
+                  alt={b.name}
+                  className="size-11 rounded-xl object-cover border border-border shrink-0"
+                />
+              ) : (
+                <span className="grid size-11 place-items-center rounded-xl bg-secondary text-xl shrink-0">
+                  {b.emoji}
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold">{b.name}</p>
                 <p className="text-xs text-muted-foreground">

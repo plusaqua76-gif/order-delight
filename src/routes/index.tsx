@@ -117,12 +117,26 @@ function Home() {
               params={{ slug: b.slug }}
               className="surface-card lift-hover flex items-center gap-4 p-4"
             >
-              <span
-                className="grid size-14 shrink-0 place-items-center rounded-2xl text-2xl"
-                style={{ backgroundColor: b.color, opacity: b.active ? 1 : 0.5 }}
-              >
-                {b.emoji}
-              </span>
+              {b.logoUrl ? (
+                <div className="relative size-14 shrink-0 overflow-hidden rounded-2xl border border-border">
+                  <img
+                    src={b.logoUrl}
+                    alt={b.name}
+                    className="size-full object-cover"
+                    style={{ opacity: b.active ? 1 : 0.5 }}
+                  />
+                  <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/60 px-1 text-[10px]">
+                    {b.emoji}
+                  </span>
+                </div>
+              ) : (
+                <span
+                  className="grid size-14 shrink-0 place-items-center rounded-2xl text-2xl"
+                  style={{ backgroundColor: b.color, opacity: b.active ? 1 : 0.5 }}
+                >
+                  {b.emoji}
+                </span>
+              )}
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
                   <span className="truncate font-display font-bold">{b.name}</span>

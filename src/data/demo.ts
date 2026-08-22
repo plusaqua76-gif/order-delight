@@ -4,6 +4,7 @@ export type Business = {
   name: string;
   category: string;
   emoji: string;
+  logoUrl?: string;
   color: string;
   schedule: string;
   phone: string;
@@ -188,6 +189,8 @@ export const demoBusinesses: Business[] = [
     name: "Burger Pitalito",
     category: "Hamburguesas",
     emoji: "🍔",
+    logoUrl:
+      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&auto=format&fit=crop&q=80",
     color: "var(--brand-1)",
     schedule: "5:00 p.m. - 11:30 p.m.",
     phone: "573001112233",
@@ -200,6 +203,8 @@ export const demoBusinesses: Business[] = [
     name: "Pollo Dorado Huila",
     category: "Asados",
     emoji: "🍗",
+    logoUrl:
+      "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=200&auto=format&fit=crop&q=80",
     color: "var(--brand-2)",
     schedule: "11:00 a.m. - 9:00 p.m.",
     phone: "573002223344",
@@ -212,6 +217,8 @@ export const demoBusinesses: Business[] = [
     name: "Pizzería La Esquina",
     category: "Pizzas",
     emoji: "🍕",
+    logoUrl:
+      "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=200&auto=format&fit=crop&q=80",
     color: "var(--brand-3)",
     schedule: "4:00 p.m. - 11:00 p.m.",
     phone: "573003334455",
@@ -224,6 +231,8 @@ export const demoBusinesses: Business[] = [
     name: "Arepas del Sur",
     category: "Comidas rápidas",
     emoji: "🌮",
+    logoUrl:
+      "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=200&auto=format&fit=crop&q=80",
     color: "var(--brand-4)",
     schedule: "6:00 p.m. - 12:00 a.m.",
     phone: "573004445566",
@@ -236,6 +245,8 @@ export const demoBusinesses: Business[] = [
     name: "Café Nubex",
     category: "Cafetería",
     emoji: "☕",
+    logoUrl:
+      "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=200&auto=format&fit=crop&q=80",
     color: "var(--brand-2)",
     schedule: "7:00 a.m. - 8:00 p.m.",
     phone: "573005556677",

@@ -48,12 +48,21 @@ function RestaurantPage() {
   return (
     <main className="mx-auto max-w-5xl px-4 pb-28">
       <div className="surface-card mt-4 flex items-center gap-4 p-4">
-        <span
-          className="grid size-16 shrink-0 place-items-center rounded-2xl text-3xl"
-          style={{ backgroundColor: business.color }}
-        >
-          {business.emoji}
-        </span>
+        {business.logoUrl ? (
+          <div className="relative size-16 shrink-0 overflow-hidden rounded-2xl border border-border shadow-sm">
+            <img src={business.logoUrl} alt={business.name} className="size-full object-cover" />
+            <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/60 px-1 text-xs">
+              {business.emoji}
+            </span>
+          </div>
+        ) : (
+          <span
+            className="grid size-16 shrink-0 place-items-center rounded-2xl text-3xl"
+            style={{ backgroundColor: business.color }}
+          >
+            {business.emoji}
+          </span>
+        )}
         <div className="min-w-0">
           <h1 className="truncate text-xl font-extrabold">{business.name}</h1>
           <p className="text-xs text-muted-foreground">

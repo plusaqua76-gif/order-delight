@@ -28,35 +28,43 @@ export function buildOrderMessage(opts: {
   const total = subtotal + deliveryFee;
   const lines = items.map(
     (i) =>
-      `• ${i.qty} x ${i.name} — ${cop(i.price * i.qty)}${i.note ? `\n   ↳ Nota: ${i.note}` : ""}`,
+      `  ▫️ ${i.qty}x ${i.name} — ${cop(i.price * i.qty)}${i.note ? `\n     ↳ 📝 Nota: ${i.note}` : ""}`,
   );
 
   return [
-    `*🛵 NUEVO PEDIDO — DOMICILIOS NUBEX*`,
-    `Pedido: *${code}*`,
-    `Ciudad: Pitalito, Huila`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `☁️ 🛵 *DOMICILIOS NUBEX* · Pitalito`,
+    `⚡ _Plataforma Oficial de Domicilios_`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `📌 *PEDIDO:* *${code}*`,
     ``,
-    `*🏪 Negocio:* ${business.name} (${business.category})`,
+    `🏪 *RESTAURANTE EMISOR:*`,
+    `*${business.emoji || "🍽️"} ${business.name}*`,
+    `🏷️ Categoría: ${business.category}`,
+    business.logoUrl ? `🖼️ Logo Restaurante: ${business.logoUrl}` : undefined,
     ``,
-    `*🧾 Detalle del pedido*`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `🧾 *DETALLE DE PRODUCTOS:*`,
     ...lines,
     ``,
-    `Subtotal productos: ${cop(subtotal)}`,
-    `Domicilio: ${cop(deliveryFee)}`,
-    `*TOTAL A PAGAR: ${cop(total)}*`,
+    `💰 Subtotal: ${cop(subtotal)}`,
+    `🛵 Domicilio: ${cop(deliveryFee)}`,
+    `💵 *TOTAL A PAGAR: ${cop(total)}*`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
     ``,
-    `*👤 Cliente*`,
-    `Nombre: ${data.name}`,
-    `Teléfono: ${data.phone}`,
-    `Dirección: ${data.address}`,
-    `Barrio: ${data.neighborhood}`,
-    data.reference ? `Referencia: ${data.reference}` : ``,
+    `👤 *DATOS DEL CLIENTE:*`,
+    `• Nombre: ${data.name}`,
+    `• Teléfono: ${data.phone}`,
+    `• Dirección: ${data.address}`,
+    `• Barrio: ${data.neighborhood}`,
+    data.reference ? `• Referencia: ${data.reference}` : undefined,
     ``,
-    `*💳 Método de pago:* ${data.payment}`,
+    `💳 *MÉTODO DE PAGO:* ${data.payment}`,
     ``,
-    `_Enviado automáticamente desde la web de Domicilios Nubex_`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `🛵 _Despacho gestionado por Domicilios Nubex Pitalito_`,
   ]
-    .filter((l) => l !== undefined)
+    .filter((l): l is string => l !== undefined)
     .join("\n");
 }
 
