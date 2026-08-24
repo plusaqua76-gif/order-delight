@@ -4,6 +4,7 @@ interface NubexLogoProps {
   size?: "sm" | "md" | "lg" | "xl";
   showText?: boolean;
   showSubtitle?: boolean;
+  categoryText?: string;
   subtitleText?: string;
   className?: string;
   animated?: boolean;
@@ -14,6 +15,7 @@ export function NubexLogo({
   size = "md",
   showText = true,
   showSubtitle = true,
+  categoryText = "CENTRAL DE ACARREOS",
   subtitleText = "PITALITO · HUILA",
   className = "",
   animated = true,
@@ -299,19 +301,21 @@ export function NubexLogo({
         </svg>
       </div>
 
-      {/* Typography: DOMICILIOS NUBEX */}
+      {/* Typography: NUBEX CENTRAL DE ACARREOS */}
       {showText && (
         <div className="flex flex-col justify-center leading-none">
-          {/* Top Category Badge: DOMICILIOS */}
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`font-black uppercase ${badgeSizes[size]} text-[#00E5FF] tracking-[0.24em]`}
-              style={{ fontFamily: "'Outfit', sans-serif" }}
-            >
-              DOMICILIOS
-            </span>
-            <span className="size-1 rounded-full bg-[#00E5FF] animate-ping" />
-          </div>
+          {/* Top Category Badge */}
+          {categoryText && (
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`font-black uppercase ${badgeSizes[size]} text-[#00E5FF] tracking-[0.24em]`}
+                style={{ fontFamily: "'Outfit', sans-serif" }}
+              >
+                {categoryText}
+              </span>
+              <span className="size-1 rounded-full bg-[#00E5FF] animate-ping" />
+            </div>
+          )}
 
           {/* Main Title: NUBEX (with cyan dot on X) */}
           <div className="flex items-center -mt-0.5">

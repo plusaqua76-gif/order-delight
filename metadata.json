@@ -1,6 +1,6 @@
 {
-  "name": "Domicilios Nubex",
-  "description": "Plataforma de domicilios para restaurantes y comercios aliados en Pitalito, Huila con pedidos directos por WhatsApp.",
+  "name": "Nubex Central de Acarreos",
+  "description": "Servicio y coordinación de acarreos, mudanzas y transporte de carga en Pitalito, Huila.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
