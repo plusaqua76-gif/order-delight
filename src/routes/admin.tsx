@@ -1,493 +1,697 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
-import { cop } from "@/lib/format";
-import { DELIVERY_FEE, type Business, type Product } from "@/data/demo";
-import { NubexLogo } from "@/components/NubexLogo";
+import { cop, slugify, formatOrderDate, formatOrderTime } from "@/lib/format";
+import { waLink } from "@/lib/whatsapp";
+import { RoleAuthModal } from "@/components/RoleAuthModal";
+import type { Business, Product, OrderLog, OrderStatus, AppUser, UserRole } from "@/data/demo";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Panel de administración | Domicilios Nubex" },
+      { title: "Panel Modular por Roles | Domicilios Nubex Pitalito" },
       {
         name: "description",
         content:
-          "Gestiona restaurantes aliados, productos y consulta estadísticas y registro de domicilios en Domicilios Nubex Pitalito.",
+          "Módulos para Super Administrador, Restaurantes Aliados y Domiciliarios con sincronización en tiempo real.",
       },
-      { property: "og:title", content: "Panel de administración | Domicilios Nubex" },
-      {
-        property: "og:description",
-        content: "Administra negocios, menús y domicilios de la plataforma en Pitalito.",
-      },
-      { name: "robots", content: "noindex" },
     ],
   }),
   component: Admin,
 });
 
-const slugify = (s: string) =>
-  s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
 const emptyBusiness = (): Business => ({
-  id: `b${Date.now()}`,
+  id: `b-${Date.now()}`,
   slug: "",
   name: "",
   category: "",
   emoji: "🍽️",
   logoUrl: "",
   color: "var(--brand-1)",
-  schedule: "",
-  phone: "",
+  schedule: "7:00 am - 11:00 pm",
+  openTime: "07:00",
+  closeTime: "23:00",
+  phone: "573001112233",
   active: true,
-  deliveryFee: DELIVERY_FEE,
+  deliveryFee: 6000,
 });
 
 const emptyProduct = (businessId: string): Product => ({
-  id: `p${Date.now()}`,
+  id: `p-${Date.now()}`,
   businessId,
-  category: "",
+  category: "Platos",
   name: "",
   description: "",
-  price: 0,
-  emoji: "🍽️",
+  price: 15000,
+  emoji: "🍲",
   active: true,
 });
 
-function Admin() {
+const emptyUser = (): AppUser => ({
+  id: `usr-${Date.now()}`,
+  email: "",
+  name: "",
+  role: "restaurante",
+  phone: "",
+  businessId: "",
+  active: true,
+  createdAt: new Date().toISOString(),
+});
+
+type DateRangeFilter = "all" | "today" | "week" | "month";
+
+export function Admin() {
   const {
     businesses,
     products,
     orders,
+    users,
+    currentUser,
+    config,
+    updateConfig,
     saveBusiness,
     removeBusiness,
     toggleBusiness,
     saveProduct,
     removeProduct,
+    updateOrder,
+    removeOrder,
+    saveUser,
+    removeUser,
+    logoutUser,
+    setCurrentUserDirectly,
   } = useStore();
-  const [tab, setTab] = useState<"domicilios" | "negocios" | "productos">("domicilios");
+
+  const [tab, setTab] = useState<"despacho" | "negocios" | "productos" | "usuarios" | "ajustes">(
+    "despacho",
+  );
+  const [selected, setSelected] = useState(businesses[0]?.id ?? "");
   const [bForm, setBForm] = useState<Business | null>(null);
   const [pForm, setPForm] = useState<Product | null>(null);
-  const [selected, setSelected] = useState(businesses[0]?.id ?? "");
+  const [uForm, setUForm] = useState<AppUser | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Filters for Domicilios
+  // Filters for orders
+  const [dateFilter, setDateFilter] = useState<DateRangeFilter>("all");
   const [businessFilter, setBusinessFilter] = useState<string>("all");
-  const [datePreset, setDatePreset] = useState<"last-month" | "all" | "custom">("last-month");
-  const [startDate, setStartDate] = useState<string>(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return d.toISOString().split("T")[0] || "";
-  });
-  const [endDate, setEndDate] = useState<string>(() => {
-    return new Date().toISOString().split("T")[0] || "";
-  });
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // Handle Preset changes
-  const applyPreset = (preset: "last-month" | "all" | "custom") => {
-    setDatePreset(preset);
-    if (preset === "last-month") {
-      const d = new Date();
-      d.setDate(d.getDate() - 30);
-      setStartDate(d.toISOString().split("T")[0] || "");
-      setEndDate(new Date().toISOString().split("T")[0] || "");
-    } else if (preset === "all") {
-      setStartDate("");
-      setEndDate("");
-    }
-  };
+  // Editing order modal for dispatch
+  const [editingOrder, setEditingOrder] = useState<OrderLog | null>(null);
 
-  // Filtered Orders Calculation
+  // Effective role: If no user logged in, default to superadmin view with a banner
+  const role: UserRole = currentUser?.role || "superadmin";
+
+  // Filtered orders according to role and active filters
   const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
-      // Business filter
-      if (businessFilter !== "all" && order.businessId !== businessFilter) {
+    const now = new Date();
+    return orders.filter((ord) => {
+      // If role is restaurante, ONLY see orders of their business
+      if (role === "restaurante" && currentUser?.businessId) {
+        if (ord.businessId !== currentUser.businessId) return false;
+      }
+
+      // If role is domiciliario, ONLY see orders assigned to them
+      if (role === "domiciliario") {
+        if (
+          ord.assignedDriver?.toLowerCase() !== currentUser?.name.toLowerCase() &&
+          ord.driverPhone !== currentUser?.phone
+        ) {
+          // If not assigned to him, only show unassigned if status is 'en_preparacion' or 'recibido'
+          if (ord.assignedDriver) return false;
+        }
+      }
+
+      // Filter by Business
+      if (businessFilter !== "all" && ord.businessId !== businessFilter) {
         return false;
       }
 
-      // Date range filter
-      if (startDate) {
-        const orderDateStr = order.createdAt.split("T")[0] || "";
-        if (orderDateStr < startDate) return false;
+      // Filter by Status
+      if (statusFilter !== "all" && (ord.status || "recibido") !== statusFilter) {
+        return false;
       }
-      if (endDate) {
-        const orderDateStr = order.createdAt.split("T")[0] || "";
-        if (orderDateStr > endDate) return false;
+
+      // Filter by Date
+      const orderDate = new Date(ord.createdAt);
+      if (dateFilter === "today") {
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        return orderDate >= startOfDay;
+      }
+      if (dateFilter === "week") {
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - 7);
+        return orderDate >= startOfWeek;
+      }
+      if (dateFilter === "month") {
+        const startOfMonth = new Date(now);
+        startOfMonth.setDate(now.getDate() - 30);
+        return orderDate >= startOfMonth;
       }
 
       return true;
     });
-  }, [orders, businessFilter, startDate, endDate]);
+  }, [orders, businessFilter, statusFilter, dateFilter, role, currentUser]);
 
-  // Key metrics
-  const totalDeliveries = filteredOrders.length;
-  const totalSubtotal = filteredOrders.reduce((acc, o) => acc + o.subtotal, 0);
-  const totalDeliveryFees = filteredOrders.reduce((acc, o) => acc + o.deliveryFee, 0);
-  const grandTotal = totalSubtotal + totalDeliveryFees;
-
-  // Split calculations (80% Domiciliario / 20% Plataforma)
+  // Statistics calculation based on filtered orders
+  const totalOrdersCount = filteredOrders.length;
+  const totalDeliveryFees = filteredOrders.reduce((sum, o) => sum + (o.deliveryFee || 0), 0);
   const driverEarnings = Math.round(totalDeliveryFees * 0.8);
   const platformEarnings = Math.round(totalDeliveryFees * 0.2);
 
-  // Breakdown per business
-  const businessBreakdown = useMemo(() => {
-    const map = new Map<
-      string,
-      { count: number; subtotal: number; deliveryFees: number; name: string }
-    >();
-    filteredOrders.forEach((o) => {
-      const current = map.get(o.businessId) || {
-        count: 0,
-        subtotal: 0,
-        deliveryFees: 0,
-        name: o.businessName,
-      };
-      current.count += 1;
-      current.subtotal += o.subtotal;
-      current.deliveryFees += o.deliveryFee;
-      map.set(o.businessId, current);
-    });
-    return Array.from(map.entries());
-  }, [filteredOrders]);
+  // Quick WhatsApp notify to driver
+  const sendDriverWhatsApp = (ord: OrderLog, driverPhone: string, driverName: string) => {
+    const text = [
+      `🛵 *ASIGNACIÓN DE DOMICILIO NUBEX*`,
+      `Hola *${driverName}*, tienes un nuevo servicio asignado:`,
+      ``,
+      `📌 *Pedido:* ${ord.code}`,
+      `🏪 *Restaurante:* ${ord.businessName}`,
+      `📍 *Entregar en:* ${ord.address} (${ord.neighborhood})`,
+      `👤 *Cliente:* ${ord.customerName} (${ord.customerPhone})`,
+      `💵 *Valor Domicilio a cobrar/ganar:* ${cop(ord.deliveryFee)} (Tu pago 80%: ${cop(Math.round(ord.deliveryFee * 0.8))})`,
+      `💳 *Pago:* ${ord.payment}${ord.payment === "Efectivo" && ord.cashAmount ? ` (Paga con ${cop(ord.cashAmount)}, cambio ${cop(ord.changeNeeded || 0)})` : ""}`,
+      `🧾 *Total a recaudar del pedido:* ${cop(ord.total)}`,
+      ``,
+      `¡Por favor confirma recibido para coordinar con el restaurante! 🚀`,
+    ].join("\n");
+
+    const url = waLink(driverPhone, text);
+    window.open(url, "_blank");
+  };
+
+  // My business if logged in as restaurant
+  const myBusiness = businesses.find((b) => b.id === currentUser?.businessId);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-16">
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+    <main className="mx-auto max-w-5xl px-4 py-8">
+      {/* Role Banner / Active Session */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cyan-500/30 bg-cyan-950/30 p-4">
         <div className="flex items-center gap-3">
-          <NubexLogo size="md" showSubtitle={false} />
+          <div className="grid size-10 place-items-center rounded-xl bg-cyan-500/20 text-xl font-black text-cyan-300">
+            {role === "superadmin" ? "👑" : role === "restaurante" ? "👨‍🍳" : "🛵"}
+          </div>
           <div>
-            <h1 className="text-2xl font-extrabold text-white">Panel de administración</h1>
-            <p className="text-xs text-muted-foreground">
-              Control de domicilios, restaurantes y productos de Domicilios Nubex Pitalito.
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">
+                Módulo Activo:
+              </span>
+              <span className="rounded-md bg-cyan-500/20 px-2 py-0.5 text-xs font-black uppercase text-cyan-300">
+                {role === "superadmin"
+                  ? "Super Administrador"
+                  : role === "restaurante"
+                    ? `Restaurante (${myBusiness?.name || "Aliado"})`
+                    : "Domiciliario Repartidor"}
+              </span>
+            </div>
+            <p className="text-xs font-medium text-white">
+              {currentUser
+                ? `Conectado como ${currentUser.name} (${currentUser.email})`
+                : "Modo Super Administrador Maestro"}
             </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Quick role switcher for testing convenience */}
+          <div className="flex items-center gap-1 rounded-xl border border-border bg-card p-1">
+            <span className="px-2 text-[10px] font-bold text-muted-foreground uppercase">
+              Probar:
+            </span>
+            {users.slice(0, 3).map((u) => (
+              <button
+                key={u.id}
+                onClick={() => {
+                  setCurrentUserDirectly(u);
+                  toast.success(`Cambiado a rol: ${u.role.toUpperCase()}`);
+                }}
+                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                  currentUser?.id === u.id
+                    ? "bg-cyan-500 text-black font-black"
+                    : "text-muted-foreground hover:text-white"
+                }`}
+              >
+                {u.role === "superadmin"
+                  ? "Admin"
+                  : u.role === "restaurante"
+                    ? "Cocina"
+                    : "Repartidor"}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            className="rounded-xl border border-cyan-500/40 bg-cyan-950/60 px-3.5 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-900/50"
+          >
+            {currentUser ? "Mi Cuenta" : "Acceso por Correo"}
+          </button>
+        </div>
+      </div>
+
+      {/* Header */}
+      <div className="flex flex-col justify-between gap-4 border-b border-border/80 pb-6 sm:flex-row sm:items-center">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-md bg-cyan-500/20 px-2 py-0.5 text-xs font-black text-cyan-400">
+              CENTRAL NUBEX
+            </span>
+            <span className="text-xs text-muted-foreground">Pitalito, Huila</span>
+          </div>
+          <h1 className="mt-1 text-2xl font-black text-white">
+            {role === "superadmin"
+              ? "Panel Central de Despacho & Administración"
+              : role === "restaurante"
+                ? `Gestión de Pedidos & Menú · ${myBusiness?.name || "Restaurante"}`
+                : "Módulo de Rutas & Entregas Domiciliario"}
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            {role === "superadmin"
+              ? "Control total de despachos, restaurantes, catálogo de platos, creación de roles y liquidación 80/20."
+              : role === "restaurante"
+                ? "Atiende los pedidos de tu cocina, actualiza tus precios y activa o pausa tus platos."
+                : "Revisa tus pedidos asignados, marca 'En camino' y confirma entregas para liquidar tu pago del 80%."}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/40 px-3 py-2 text-xs font-bold text-emerald-400">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+            </span>
+            <span>Firestore En Vivo</span>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="mt-5 flex gap-2 overflow-x-auto pb-1">
-        {(
-          [
-            { id: "domicilios", label: "🛵 Domicilios y Reportes" },
-            { id: "negocios", label: "🏪 Restaurantes" },
-            { id: "productos", label: "🍔 Productos" },
-          ] as const
-        ).map((t) => (
+      {/* Tabs Navigation (Adapted by Role) */}
+      <div className="mt-6 flex flex-wrap border-b border-border text-xs font-bold">
+        {/* Superadmin sees all tabs */}
+        {role === "superadmin" && (
+          <>
+            <button
+              onClick={() => setTab("despacho")}
+              className={`border-b-2 px-4 py-3 transition-colors ${
+                tab === "despacho"
+                  ? "border-cyan-400 text-cyan-400"
+                  : "border-transparent text-muted-foreground hover:text-white"
+              }`}
+            >
+              🛵 Central de Despacho ({orders.length})
+            </button>
+            <button
+              onClick={() => setTab("negocios")}
+              className={`border-b-2 px-4 py-3 transition-colors ${
+                tab === "negocios"
+                  ? "border-cyan-400 text-cyan-400"
+                  : "border-transparent text-muted-foreground hover:text-white"
+              }`}
+            >
+              🏪 Restaurantes ({businesses.length})
+            </button>
+            <button
+              onClick={() => setTab("productos")}
+              className={`border-b-2 px-4 py-3 transition-colors ${
+                tab === "productos"
+                  ? "border-cyan-400 text-cyan-400"
+                  : "border-transparent text-muted-foreground hover:text-white"
+              }`}
+            >
+              🍔 Menú & Platos ({products.length})
+            </button>
+            <button
+              onClick={() => setTab("usuarios")}
+              className={`border-b-2 px-4 py-3 transition-colors ${
+                tab === "usuarios"
+                  ? "border-cyan-400 text-cyan-400"
+                  : "border-transparent text-muted-foreground hover:text-white"
+              }`}
+            >
+              👥 Roles & Accesos ({users.length})
+            </button>
+            <button
+              onClick={() => setTab("ajustes")}
+              className={`border-b-2 px-4 py-3 transition-colors ${
+                tab === "ajustes"
+                  ? "border-cyan-400 text-cyan-400"
+                  : "border-transparent text-muted-foreground hover:text-white"
+              }`}
+            >
+              ⚙️ Configuración & Tarifas
+            </button>
+          </>
+        )}
+
+        {/* Restaurant sees only their Orders and their Products */}
+        {role === "restaurante" && (
+          <>
+            <button
+              onClick={() => setTab("despacho")}
+              className={`border-b-2 px-4 py-3 transition-colors ${
+                tab === "despacho"
+                  ? "border-cyan-400 text-cyan-400"
+                  : "border-transparent text-muted-foreground hover:text-white"
+              }`}
+            >
+              👨‍🍳 Comandas de Cocina ({filteredOrders.length})
+            </button>
+            <button
+              onClick={() => {
+                if (myBusiness) setSelected(myBusiness.id);
+                setTab("productos");
+              }}
+              className={`border-b-2 px-4 py-3 transition-colors ${
+                tab === "productos"
+                  ? "border-cyan-400 text-cyan-400"
+                  : "border-transparent text-muted-foreground hover:text-white"
+              }`}
+            >
+              🍔 Administrar Mi Menú
+            </button>
+          </>
+        )}
+
+        {/* Domiciliario sees only delivery route and earnings */}
+        {role === "domiciliario" && (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-xs font-bold transition-all ${
-              tab === t.id
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
+            onClick={() => setTab("despacho")}
+            className="border-b-2 border-cyan-400 px-4 py-3 text-cyan-400"
           >
-            {t.label}
+            🛵 Mis Entregas & Ganancias ({filteredOrders.length})
           </button>
-        ))}
+        )}
       </div>
 
-      {/* TAB: DOMICILIOS Y REPORTES */}
-      {tab === "domicilios" && (
-        <section className="mt-5 space-y-5">
-          {/* Filter Bar */}
-          <div className="surface-card space-y-4 p-4 md:p-5">
-            <h2 className="font-display text-base font-bold">Filtros de Domicilios</h2>
+      {/* TAB 1: DESPACHO / COMANDAS / ENTREGAS */}
+      {tab === "despacho" && (
+        <section className="mt-6 space-y-6">
+          {/* Summary Metric Cards */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="surface-card p-4">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                📦 Pedidos Filtrados
+              </span>
+              <p className="mt-1 font-display text-2xl font-black text-white">{totalOrdersCount}</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                {role === "superadmin"
+                  ? "Filtro global"
+                  : role === "restaurante"
+                    ? "Tu negocio"
+                    : "Tus entregas"}
+              </p>
+            </div>
 
-            {/* Presets & Business selector */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {/* Business Filter */}
-              <div>
-                <label className="mb-1 block text-xs font-bold text-foreground">
-                  Filtrar por Negocio
-                </label>
+            <div className="surface-card p-4">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                🛵 Total Fletes
+              </span>
+              <p className="mt-1 font-display text-2xl font-black text-cyan-300">
+                {cop(totalDeliveryFees)}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Tarifas domicilios</p>
+            </div>
+
+            <div className="surface-card p-4">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                🛵 Domiciliarios (80%)
+              </span>
+              <p className="mt-1 font-display text-2xl font-black text-emerald-400">
+                {cop(driverEarnings)}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                {role === "domiciliario" ? "Tu ganancia estimada" : "A repartir"}
+              </p>
+            </div>
+
+            <div className="surface-card p-4">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                💼 Comisión Nubex (20%)
+              </span>
+              <p className="mt-1 font-display text-2xl font-black text-cyan-400">
+                {cop(platformEarnings)}
+              </p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Central Pitalito</p>
+            </div>
+          </div>
+
+          {/* Filters Bar (Only for superadmin or general view) */}
+          {role === "superadmin" && (
+            <div className="surface-card flex flex-wrap items-center justify-between gap-3 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-muted-foreground">Restaurante:</span>
                 <select
                   value={businessFilter}
                   onChange={(e) => setBusinessFilter(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-ring"
+                  className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-white"
                 >
-                  <option value="all">🏪 Todos los negocios ({businesses.length})</option>
+                  <option value="all">Todos los restaurantes</option>
                   {businesses.map((b) => (
                     <option key={b.id} value={b.id}>
-                      {b.emoji} {b.name}
+                      {b.name}
                     </option>
                   ))}
                 </select>
+
+                <span className="text-xs font-bold text-muted-foreground ml-2">Estado:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-white"
+                >
+                  <option value="all">Todos los estados</option>
+                  <option value="recibido">🟡 Recibido / Por Asignar</option>
+                  <option value="en_preparacion">👨‍🍳 En Preparación</option>
+                  <option value="en_camino">🛵 En Camino</option>
+                  <option value="entregado">🟢 Entregado</option>
+                  <option value="cancelado">🔴 Cancelado</option>
+                </select>
               </div>
 
-              {/* Quick Period Filter */}
-              <div>
-                <label className="mb-1 block text-xs font-bold text-foreground">
-                  Período Rápido
-                </label>
-                <div className="flex gap-1.5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-muted-foreground">Periodo:</span>
+                {(["all", "today", "week", "month"] as const).map((r) => (
                   <button
-                    type="button"
-                    onClick={() => applyPreset("last-month")}
-                    className={`flex-1 rounded-xl px-2.5 py-2 text-xs font-bold transition-colors ${
-                      datePreset === "last-month"
-                        ? "bg-primary text-primary-foreground"
-                        : "border border-border bg-secondary text-muted-foreground hover:bg-secondary/80"
+                    key={r}
+                    onClick={() => setDateFilter(r)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-colors ${
+                      dateFilter === r
+                        ? "bg-cyan-500 text-black"
+                        : "bg-secondary text-muted-foreground hover:text-white"
                     }`}
                   >
-                    Último mes (30d)
+                    {r === "all"
+                      ? "Todo"
+                      : r === "today"
+                        ? "Hoy"
+                        : r === "week"
+                          ? "7 días"
+                          : "30 días"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset("all")}
-                    className={`flex-1 rounded-xl px-2.5 py-2 text-xs font-bold transition-colors ${
-                      datePreset === "all"
-                        ? "bg-primary text-primary-foreground"
-                        : "border border-border bg-secondary text-muted-foreground hover:bg-secondary/80"
-                    }`}
-                  >
-                    Histórico
-                  </button>
-                </div>
-              </div>
-
-              {/* Custom Date Inputs */}
-              <div className="sm:col-span-2 lg:col-span-1">
-                <label className="mb-1 block text-xs font-bold text-foreground">
-                  Rango de Fechas
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      setDatePreset("custom");
-                    }}
-                    className="w-1/2 rounded-xl border border-border bg-card px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-ring"
-                  />
-                  <span className="text-xs text-muted-foreground">a</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => {
-                      setEndDate(e.target.value);
-                      setDatePreset("custom");
-                    }}
-                    className="w-1/2 rounded-xl border border-border bg-card px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Metric Cards Banner */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="surface-card p-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Domicilios Salidos
-              </span>
-              <p className="mt-1 font-display text-2xl font-black text-primary">
-                {totalDeliveries}
-              </p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                {datePreset === "last-month" ? "En los últimos 30 días" : "En el período"}
-              </p>
-            </div>
-
-            <div className="surface-card p-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Total Fletes
-              </span>
-              <p className="mt-1 font-display text-2xl font-black text-foreground">
-                {cop(totalDeliveryFees)}
-              </p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">Recaudado en envíos</p>
-            </div>
-
-            <div className="surface-card p-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                🛵 Domiciliarios (80%)
-              </span>
-              <p className="mt-1 font-display text-2xl font-black text-foreground">
-                {cop(driverEarnings)}
-              </p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">Pago a repartidores</p>
-            </div>
-
-            <div className="surface-card p-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                💼 Tu Ganancia (20%)
-              </span>
-              <p className="mt-1 font-display text-2xl font-black text-primary">
-                {cop(platformEarnings)}
-              </p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">Comisión de plataforma</p>
-            </div>
-          </div>
-
-          {/* Liquidación & Repartos Highlight Card */}
-          <div className="surface-card p-4 md:p-5">
-            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-              <div>
-                <h3 className="font-display text-sm font-bold text-foreground">
-                  📊 Liquidación de Domicilios (Regla 80% / 20%)
-                </h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Por cada domicilio, el repartidor recibe el <strong>80% del flete</strong> y la
-                  plataforma recibe el <strong>20% de comisión</strong>.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <div className="rounded-xl border border-border bg-card px-3 py-2 text-center">
-                  <p className="text-[10px] font-bold uppercase text-muted-foreground">
-                    Para Domiciliarios
-                  </p>
-                  <p className="font-display text-base font-extrabold text-foreground">
-                    {cop(driverEarnings)}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-center">
-                  <p className="text-[10px] font-bold uppercase text-primary">Tu Comisión Neta</p>
-                  <p className="font-display text-base font-extrabold text-primary">
-                    {cop(platformEarnings)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Business Breakdown Table (if looking at multiple businesses) */}
-          {businessFilter === "all" && businessBreakdown.length > 0 && (
-            <div className="surface-card p-4">
-              <h3 className="font-display text-sm font-bold">
-                Resumen y Repartos por Restaurante Aliado
-              </h3>
-              <div className="mt-3 overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-border text-muted-foreground">
-                      <th className="pb-2 font-bold">Negocio</th>
-                      <th className="pb-2 text-center font-bold">Domicilios</th>
-                      <th className="pb-2 text-right font-bold">Venta Menú</th>
-                      <th className="pb-2 text-right font-bold">Total Fletes</th>
-                      <th className="pb-2 text-right font-bold">Domiciliarios (80%)</th>
-                      <th className="pb-2 text-right font-bold text-primary">Tu Ganancia (20%)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/60">
-                    {businessBreakdown.map(([bId, stat]) => {
-                      const bDriver = Math.round(stat.deliveryFees * 0.8);
-                      const bPlatform = Math.round(stat.deliveryFees * 0.2);
-                      return (
-                        <tr key={bId} className="hover:bg-secondary/40">
-                          <td className="py-2.5 font-semibold text-foreground">{stat.name}</td>
-                          <td className="py-2.5 text-center font-bold text-primary">
-                            {stat.count}
-                          </td>
-                          <td className="py-2.5 text-right text-muted-foreground">
-                            {cop(stat.subtotal)}
-                          </td>
-                          <td className="py-2.5 text-right font-semibold text-foreground">
-                            {cop(stat.deliveryFees)}
-                          </td>
-                          <td className="py-2.5 text-right text-muted-foreground">
-                            {cop(bDriver)}
-                          </td>
-                          <td className="py-2.5 text-right font-bold text-primary">
-                            {cop(bPlatform)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Order Details List */}
+          {/* Orders Dispatch List */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-sm font-bold">
-                Detalle de Pedidos y Liquidación ({filteredOrders.length})
-              </h3>
-              <span className="text-xs text-muted-foreground">
-                Pitalito, Huila · Despachos WhatsApp
+            <h3 className="font-display text-sm font-bold text-white flex items-center justify-between">
+              <span>Órdenes Activas & Liquidación ({filteredOrders.length})</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                Actualizaciones automáticas sincronizadas con Firestore
               </span>
-            </div>
+            </h3>
 
             {filteredOrders.length === 0 ? (
-              <div className="surface-card p-8 text-center">
-                <p className="text-2xl">📦</p>
-                <p className="mt-2 text-sm font-bold">No hay domicilios para este filtro</p>
+              <div className="surface-card p-12 text-center">
+                <p className="text-3xl">📦</p>
+                <p className="mt-2 text-sm font-bold text-white">No hay pedidos disponibles</p>
                 <p className="text-xs text-muted-foreground">
-                  Prueba cambiando el rango de fechas o seleccionando otro negocio.
+                  {role === "domiciliario"
+                    ? "No tienes pedidos asignados actualmente."
+                    : "Los nuevos pedidos aparecerán aquí al instante."}
                 </p>
               </div>
             ) : (
               filteredOrders.map((ord) => {
-                const dateObj = new Date(ord.createdAt);
-                const formattedDate = dateObj.toLocaleDateString("es-CO", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                });
-                const formattedTime = dateObj.toLocaleTimeString("es-CO", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                });
-                const ordDriver = Math.round(ord.deliveryFee * 0.8);
-                const ordPlatform = Math.round(ord.deliveryFee * 0.2);
+                const timeStr = formatOrderTime(ord.createdAt);
+                const dateStr = formatOrderDate(ord.createdAt);
+                const driverCut = Math.round(ord.deliveryFee * 0.8);
+                const nubexCut = Math.round(ord.deliveryFee * 0.2);
+
+                const statusColor =
+                  ord.status === "entregado"
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                    : ord.status === "en_camino"
+                      ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                      : ord.status === "en_preparacion"
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                        : "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
 
                 return (
                   <div
                     key={ord.id}
-                    className="surface-card flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center"
+                    className="surface-card rounded-xl border border-border p-4 transition-all hover:border-cyan-500/40"
                   >
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-md bg-primary/15 px-2 py-0.5 text-xs font-extrabold text-primary">
-                          {ord.code}
-                        </span>
-                        <span className="text-xs font-bold text-foreground">
-                          {ord.businessName}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          · {formattedDate}, {formattedTime}
-                        </span>
+                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                      {/* Left: Info */}
+                      <div className="space-y-1.5 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-xs font-black text-cyan-300">
+                            {ord.code}
+                          </span>
+                          <span className="font-bold text-white">{ord.businessName}</span>
+                          <span className="text-xs text-muted-foreground" suppressHydrationWarning>
+                            · {dateStr}, {timeStr}
+                          </span>
+
+                          <span
+                            className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${statusColor}`}
+                          >
+                            {ord.status ? ord.status.replace("_", " ").toUpperCase() : "RECIBIDO"}
+                          </span>
+
+                          <span
+                            className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                              ord.zone === "afueras"
+                                ? "bg-amber-500/20 text-amber-300"
+                                : "bg-secondary text-muted-foreground"
+                            }`}
+                          >
+                            {ord.zone === "afueras" ? "🌾 Afueras" : "🏙️ Urbano"}
+                          </span>
+                        </div>
+
+                        <p className="text-xs font-medium text-white">{ord.itemsSummary}</p>
+
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
+                          <span>
+                            👤 <strong>{ord.customerName}</strong> ({ord.customerPhone})
+                          </span>
+                          <span>
+                            📍 {ord.address} — <strong>{ord.neighborhood}</strong>
+                          </span>
+                          <span>
+                            💳 {ord.payment}{" "}
+                            {ord.payment === "Efectivo" && ord.cashAmount
+                              ? `(Paga con ${cop(ord.cashAmount)} · Cambio: ${cop(ord.changeNeeded || 0)})`
+                              : ""}
+                          </span>
+                        </div>
+
+                        {/* Driver & Split info */}
+                        <div className="flex flex-wrap items-center gap-2 pt-2">
+                          {ord.assignedDriver ? (
+                            <span className="rounded-lg bg-cyan-950/60 border border-cyan-500/30 px-2.5 py-1 text-xs font-bold text-cyan-300">
+                              🛵 Repartidor: <strong>{ord.assignedDriver}</strong>
+                            </span>
+                          ) : (
+                            <span className="rounded-lg bg-amber-950/50 border border-amber-500/30 px-2 py-0.5 text-xs font-bold text-amber-400">
+                              ⚠️ Sin domiciliario asignado
+                            </span>
+                          )}
+
+                          <span className="text-[11px] text-muted-foreground">
+                            Flete {cop(ord.deliveryFee)} → Domiciliario (80%):{" "}
+                            <strong className="text-emerald-400">{cop(driverCut)}</strong> · Central
+                            (20%): <strong className="text-cyan-400">{cop(nubexCut)}</strong>
+                          </span>
+                        </div>
                       </div>
 
-                      <p className="text-xs font-medium text-foreground">{ord.itemsSummary}</p>
+                      {/* Right: Actions */}
+                      <div className="flex flex-col items-end gap-2 border-t border-border pt-3 sm:border-t-0 sm:pt-0 shrink-0">
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">
+                            Subtotal: {cop(ord.subtotal)} + Flete: {cop(ord.deliveryFee)}
+                          </p>
+                          <p className="font-display text-base font-black text-cyan-400">
+                            Total: {cop(ord.total)}
+                          </p>
+                        </div>
 
-                      <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-muted-foreground">
-                        <span>
-                          👤 <strong>{ord.customerName}</strong> ({ord.customerPhone})
-                        </span>
-                        <span>
-                          📍 {ord.neighborhood} - {ord.address}
-                        </span>
-                        <span>💳 {ord.payment}</span>
-                      </div>
+                        {/* Role-Specific Action Buttons */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {role === "superadmin" && (
+                            <>
+                              <button
+                                onClick={() => setEditingOrder(ord)}
+                                className="rounded-lg bg-cyan-500/20 border border-cyan-500/40 px-2.5 py-1 text-xs font-bold text-cyan-300 hover:bg-cyan-500 hover:text-black transition-colors"
+                              >
+                                ⚙️ Asignar / Ajustar
+                              </button>
+                              <button
+                                onClick={() => {
+                                  removeOrder(ord.id);
+                                  toast("Orden eliminada");
+                                }}
+                                className="rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:text-rose-400"
+                                title="Eliminar"
+                              >
+                                🗑️
+                              </button>
+                            </>
+                          )}
 
-                      {/* Reparto breakdown pill */}
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2 pt-1">
-                        <span className="rounded-lg bg-secondary px-2 py-0.5 text-[11px] font-semibold text-foreground">
-                          🛵 Domiciliario (80%): <strong>{cop(ordDriver)}</strong>
-                        </span>
-                        <span className="rounded-lg bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
-                          💼 Tu Ganancia (20%): <strong>{cop(ordPlatform)}</strong>
-                        </span>
-                      </div>
-                    </div>
+                          {role === "restaurante" && (
+                            <>
+                              {ord.status === "recibido" && (
+                                <button
+                                  onClick={() => {
+                                    updateOrder(ord.id, { status: "en_preparacion" });
+                                    toast.success("Comanda puesta en preparación");
+                                  }}
+                                  className="rounded-lg bg-amber-500 px-3 py-1 text-xs font-black text-black"
+                                >
+                                  👨‍🍳 Poner en Preparación
+                                </button>
+                              )}
+                              {ord.status === "en_preparacion" && (
+                                <button
+                                  onClick={() => {
+                                    updateOrder(ord.id, { status: "en_camino" });
+                                    toast.success("Marcado como listo para despacho");
+                                  }}
+                                  className="rounded-lg bg-blue-500 px-3 py-1 text-xs font-black text-white"
+                                >
+                                  📦 Listo para Despacho
+                                </button>
+                              )}
+                            </>
+                          )}
 
-                    <div className="flex shrink-0 flex-row items-center justify-between border-t border-border pt-2 sm:flex-col sm:items-end sm:border-t-0 sm:pt-0">
-                      <div className="text-left sm:text-right">
-                        <p className="text-[11px] text-muted-foreground">
-                          Flete total: {cop(ord.deliveryFee)}
-                        </p>
-                        <p className="font-display text-sm font-extrabold text-primary">
-                          Total: {cop(ord.total)}
-                        </p>
+                          {role === "domiciliario" && (
+                            <>
+                              {ord.status !== "en_camino" && ord.status !== "entregado" && (
+                                <button
+                                  onClick={() => {
+                                    updateOrder(ord.id, {
+                                      status: "en_camino",
+                                      assignedDriver: currentUser?.name || "Repartidor Nubex",
+                                      driverPhone: currentUser?.phone || "",
+                                    });
+                                    toast.success("¡Pedido tomado! Estás en camino");
+                                  }}
+                                  className="rounded-lg bg-blue-500 px-3 py-1 text-xs font-black text-white"
+                                >
+                                  🛵 Tomar & Ir en Camino
+                                </button>
+                              )}
+                              {ord.status === "en_camino" && (
+                                <button
+                                  onClick={() => {
+                                    updateOrder(ord.id, { status: "entregado" });
+                                    toast.success("¡Pedido entregado con éxito! Comisión sumada.");
+                                  }}
+                                  className="rounded-lg bg-emerald-500 px-3 py-1 text-xs font-black text-black"
+                                >
+                                  ✅ Confirmar Entregado
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -498,73 +702,260 @@ function Admin() {
         </section>
       )}
 
-      {/* TAB: NEGOCIOS */}
-      {tab === "negocios" && (
-        <section className="mt-4 space-y-3">
-          <button
-            onClick={() => setBForm(emptyBusiness())}
-            className="w-full rounded-xl border border-dashed border-primary py-3 text-xs font-bold text-primary"
-          >
-            + Crear restaurante
-          </button>
+      {/* TAB: ROLES & USUARIOS (SUPERADMIN EXCLUSIVE) */}
+      {tab === "usuarios" && role === "superadmin" && (
+        <section className="mt-6 space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+            <div>
+              <h3 className="font-display text-sm font-bold text-white">
+                👥 Gestión de Usuarios & Roles de Nubex
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Crea los accesos por correo para Restaurantes Aliados y Domiciliarios. A cada uno le
+                llegará la invitación a su correo.
+              </p>
+            </div>
+            <button
+              onClick={() => setUForm(emptyUser())}
+              className="rounded-xl bg-cyan-500 px-4 py-2 text-xs font-black text-black hover:bg-cyan-400 transition-colors"
+            >
+              + Crear Nuevo Usuario / Rol
+            </button>
+          </div>
 
-          {bForm && (
-            <div className="surface-card space-y-2 p-4">
-              <h2 className="font-display text-sm font-bold">Datos del negocio</h2>
-              <Row
-                label="Nombre"
-                value={bForm.name}
-                onChange={(v) => setBForm({ ...bForm, name: v })}
-              />
-              <Row
-                label="Categoría"
-                value={bForm.category}
-                onChange={(v) => setBForm({ ...bForm, category: v })}
-              />
-              <Row
-                label="Horario"
-                value={bForm.schedule}
-                onChange={(v) => setBForm({ ...bForm, schedule: v })}
-              />
-              <Row
-                label="WhatsApp del negocio"
-                value={bForm.phone}
-                onChange={(v) => setBForm({ ...bForm, phone: v })}
-              />
-              <Row
-                label="Logo (emoji)"
-                value={bForm.emoji}
-                onChange={(v) => setBForm({ ...bForm, emoji: v })}
-              />
-              <Row
-                label="URL del Logo / Imagen del Restaurante (opcional)"
-                value={bForm.logoUrl || ""}
-                onChange={(v) => setBForm({ ...bForm, logoUrl: v })}
-              />
-              {bForm.logoUrl && (
-                <div className="flex items-center gap-2.5 rounded-xl border border-border/70 bg-card p-2">
-                  <img
-                    src={bForm.logoUrl}
-                    alt="Vista previa del logo"
-                    className="size-10 rounded-lg object-cover border border-border"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                  <span className="text-[11px] text-muted-foreground">
-                    Vista previa del logo del restaurante
+          {/* Form Create / Edit User */}
+          {uForm && (
+            <div className="surface-card space-y-4 rounded-2xl border border-cyan-500/40 p-5 bg-card">
+              <h4 className="font-display text-sm font-bold text-white">
+                {uForm.id.startsWith("usr-")
+                  ? "Nuevo Usuario y Asignación de Rol"
+                  : "Editar Usuario"}
+              </h4>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Row
+                  label="Nombre Completo / Razón Social"
+                  value={uForm.name}
+                  onChange={(v) => setUForm({ ...uForm, name: v })}
+                />
+                <Row
+                  label="Correo Electrónico (para inicio de sesión)"
+                  value={uForm.email}
+                  onChange={(v) => setUForm({ ...uForm, email: v })}
+                />
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold text-muted-foreground">
+                    Rol en la Plataforma
                   </span>
-                </div>
-              )}
+                  <select
+                    value={uForm.role}
+                    onChange={(e) => setUForm({ ...uForm, role: e.target.value as UserRole })}
+                    className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-white"
+                  >
+                    <option value="superadmin">👑 Super Administrador (Acceso Total)</option>
+                    <option value="restaurante">
+                      👨‍🍳 Restaurante Aliado (Ver solo sus pedidos y menú)
+                    </option>
+                    <option value="domiciliario">
+                      🛵 Domiciliario (Ver solo sus rutas y ganancias)
+                    </option>
+                  </select>
+                </label>
+
+                {uForm.role === "restaurante" ? (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-bold text-muted-foreground">
+                      Restaurante Asociado
+                    </span>
+                    <select
+                      value={uForm.businessId || ""}
+                      onChange={(e) => setUForm({ ...uForm, businessId: e.target.value })}
+                      className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-white"
+                    >
+                      <option value="">Selecciona el restaurante...</option>
+                      {businesses.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.category})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <Row
+                    label="Teléfono / WhatsApp"
+                    value={uForm.phone || ""}
+                    onChange={(v) => setUForm({ ...uForm, phone: v })}
+                  />
+                )}
+              </div>
+
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={() => {
-                    if (!bForm.name.trim()) return toast.error("El nombre es obligatorio");
-                    saveBusiness({ ...bForm, slug: bForm.slug || slugify(bForm.name) });
-                    setBForm(null);
-                    toast.success("Negocio guardado");
+                    if (!uForm.name.trim() || !uForm.email.trim()) {
+                      return toast.error("Nombre y correo son obligatorios");
+                    }
+                    if (uForm.role === "restaurante" && !uForm.businessId) {
+                      return toast.error("Debes asociar un restaurante al rol");
+                    }
+                    saveUser(uForm);
+                    toast.success(
+                      `Usuario ${uForm.name} guardado. Se ha habilitado su acceso por correo.`,
+                    );
+                    setUForm(null);
                   }}
-                  className="flex-1 rounded-xl bg-primary py-2.5 text-xs font-bold text-primary-foreground"
+                  className="rounded-xl bg-cyan-500 px-5 py-2.5 text-xs font-black text-black"
+                >
+                  Guardar & Enviar Acceso
+                </button>
+                <button
+                  onClick={() => setUForm(null)}
+                  className="rounded-xl border border-border px-4 text-xs font-bold text-white"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* User List */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {users.map((u) => {
+              const biz = businesses.find((b) => b.id === u.businessId);
+              return (
+                <div
+                  key={u.id}
+                  className="surface-card space-y-2 p-4 rounded-xl border border-border"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="grid size-8 place-items-center rounded-lg bg-cyan-500/20 text-sm">
+                        {u.role === "superadmin" ? "👑" : u.role === "restaurante" ? "👨‍🍳" : "🛵"}
+                      </span>
+                      <div>
+                        <p className="text-sm font-bold text-white">{u.name}</p>
+                        <p className="text-xs text-muted-foreground">{u.email}</p>
+                      </div>
+                    </div>
+
+                    <span className="rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-cyan-300">
+                      {u.role}
+                    </span>
+                  </div>
+
+                  {biz && (
+                    <p className="text-xs text-cyan-400 font-medium">
+                      🏪 Asignado a: <strong>{biz.name}</strong>
+                    </p>
+                  )}
+                  {u.phone && (
+                    <p className="text-xs text-muted-foreground">
+                      📱 WhatsApp: <strong>{u.phone}</strong>
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between border-t border-border/70 pt-2 text-xs">
+                    <span
+                      className={
+                        u.active ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"
+                      }
+                    >
+                      {u.active ? "● Activo" : "○ Inactivo"}
+                    </span>
+
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => {
+                          setCurrentUserDirectly(u);
+                          toast.success(`Probando vista como: ${u.name}`);
+                        }}
+                        className="rounded-md border border-cyan-500/30 bg-cyan-950/40 px-2 py-1 text-[11px] font-bold text-cyan-300 hover:bg-cyan-900/50"
+                      >
+                        Simular Vista
+                      </button>
+                      <IconBtn onClick={() => setUForm(u)}>✏️</IconBtn>
+                      {u.id !== "usr-superadmin" && (
+                        <IconBtn
+                          onClick={() => {
+                            removeUser(u.id);
+                            toast("Usuario eliminado");
+                          }}
+                        >
+                          🗑️
+                        </IconBtn>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* TAB 2: NEGOCIOS / RESTAURANTES */}
+      {tab === "negocios" && role === "superadmin" && (
+        <section className="mt-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-sm font-bold text-white">
+              Restaurantes Aliados de Pitalito ({businesses.length})
+            </h3>
+            <button
+              onClick={() => setBForm(emptyBusiness())}
+              className="rounded-xl bg-cyan-500 px-4 py-2 text-xs font-black text-black"
+            >
+              + Nuevo Restaurante
+            </button>
+          </div>
+
+          {bForm && (
+            <div className="surface-card space-y-4 rounded-2xl border border-cyan-500/40 p-5 bg-card">
+              <h4 className="font-display text-sm font-bold text-white">
+                {bForm.id.startsWith("b-") ? "Nuevo Restaurante" : "Editar Restaurante"}
+              </h4>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Row
+                  label="Nombre del Negocio"
+                  value={bForm.name}
+                  onChange={(v) => setBForm({ ...bForm, name: v, slug: bForm.slug || slugify(v) })}
+                />
+                <Row
+                  label="Slug URL (ej: burger-pitalito)"
+                  value={bForm.slug}
+                  onChange={(v) => setBForm({ ...bForm, slug: slugify(v) })}
+                />
+                <Row
+                  label="Categoría (ej: Hamburguesas, Pizzas, Pollo)"
+                  value={bForm.category}
+                  onChange={(v) => setBForm({ ...bForm, category: v })}
+                />
+                <Row
+                  label="WhatsApp directo para comandas"
+                  value={bForm.phone}
+                  onChange={(v) => setBForm({ ...bForm, phone: v })}
+                />
+                <Row
+                  label="Horario (ej: 11:30 am - 10:30 pm)"
+                  value={bForm.schedule}
+                  onChange={(v) => setBForm({ ...bForm, schedule: v })}
+                />
+                <Row
+                  label="Logo URL (imagen)"
+                  value={bForm.logoUrl || ""}
+                  onChange={(v) => setBForm({ ...bForm, logoUrl: v })}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => {
+                    if (!bForm.name.trim() || !bForm.slug.trim())
+                      return toast.error("Nombre y slug son obligatorios");
+                    saveBusiness(bForm);
+                    setBForm(null);
+                    toast.success("Restaurante guardado en Firestore");
+                  }}
+                  className="rounded-xl bg-cyan-500 px-5 py-2.5 text-xs font-black text-black"
                 >
                   Guardar
                 </button>
@@ -578,140 +969,29 @@ function Admin() {
             </div>
           )}
 
-          {businesses.map((b) => (
-            <div key={b.id} className="surface-card flex items-center gap-3 p-4">
-              {b.logoUrl ? (
-                <img
-                  src={b.logoUrl}
-                  alt={b.name}
-                  className="size-11 rounded-xl object-cover border border-border shrink-0"
-                />
-              ) : (
-                <span className="grid size-11 place-items-center rounded-xl bg-secondary text-xl shrink-0">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {businesses.map((b) => (
+              <div
+                key={b.id}
+                className="surface-card flex items-center gap-3 p-4 rounded-xl border border-border"
+              >
+                <span className="grid size-12 place-items-center rounded-xl bg-secondary text-2xl">
                   {b.emoji}
                 </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold">{b.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {b.category} · {b.schedule || "sin horario"} · {b.active ? "Activo" : "Pausado"}
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-1">
-                <IconBtn onClick={() => setBForm(b)}>✏️</IconBtn>
-                <IconBtn onClick={() => toggleBusiness(b.id)}>{b.active ? "⏸️" : "▶️"}</IconBtn>
-                <IconBtn
-                  onClick={() => {
-                    removeBusiness(b.id);
-                    toast("Negocio eliminado");
-                  }}
-                >
-                  🗑️
-                </IconBtn>
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
-
-      {/* TAB: PRODUCTOS */}
-      {tab === "productos" && (
-        <section className="mt-4 space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-xs font-bold">Restaurante</span>
-            <select
-              value={selected}
-              onChange={(e) => setSelected(e.target.value)}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm"
-            >
-              {businesses.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <button
-            onClick={() => setPForm(emptyProduct(selected))}
-            className="w-full rounded-xl border border-dashed border-primary py-3 text-xs font-bold text-primary"
-          >
-            + Cargar producto
-          </button>
-
-          {pForm && (
-            <div className="surface-card space-y-2 p-4">
-              <h2 className="font-display text-sm font-bold">Producto</h2>
-              <Row
-                label="Nombre"
-                value={pForm.name}
-                onChange={(v) => setPForm({ ...pForm, name: v })}
-              />
-              <Row
-                label="Descripción"
-                value={pForm.description}
-                onChange={(v) => setPForm({ ...pForm, description: v })}
-              />
-              <Row
-                label="Categoría del menú"
-                value={pForm.category}
-                onChange={(v) => setPForm({ ...pForm, category: v })}
-              />
-              <Row
-                label="Precio (COP)"
-                value={String(pForm.price)}
-                onChange={(v) => setPForm({ ...pForm, price: Number(v.replace(/\D/g, "")) || 0 })}
-              />
-              <Row
-                label="Foto (emoji)"
-                value={pForm.emoji}
-                onChange={(v) => setPForm({ ...pForm, emoji: v })}
-              />
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={() => {
-                    if (!pForm.name.trim() || !pForm.category.trim())
-                      return toast.error("Nombre y categoría son obligatorios");
-                    saveProduct({ ...pForm, businessId: pForm.businessId || selected });
-                    setPForm(null);
-                    toast.success("Producto guardado");
-                  }}
-                  className="flex-1 rounded-xl bg-primary py-2.5 text-xs font-bold text-primary-foreground"
-                >
-                  Guardar
-                </button>
-                <button
-                  onClick={() => setPForm(null)}
-                  className="rounded-xl border border-border px-4 text-xs font-bold"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
-
-          {products
-            .filter((p) => p.businessId === selected)
-            .map((p) => (
-              <div key={p.id} className="surface-card flex items-center gap-3 p-4">
-                <span className="grid size-11 place-items-center rounded-xl bg-secondary text-xl">
-                  {p.emoji}
-                </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold">{p.name}</p>
+                  <p className="truncate text-sm font-bold text-white">{b.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {p.category} · {cop(p.price)}
+                    {b.category} · 📱 {b.phone}
                   </p>
+                  <p className="text-[11px] text-cyan-400">🕒 {b.schedule}</p>
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <IconBtn onClick={() => setPForm(p)}>✏️</IconBtn>
-                  <IconBtn onClick={() => saveProduct({ ...p, active: !p.active })}>
-                    {p.active ? "⏸️" : "▶️"}
-                  </IconBtn>
+                  <IconBtn onClick={() => setBForm(b)}>✏️</IconBtn>
+                  <IconBtn onClick={() => toggleBusiness(b.id)}>{b.active ? "🟢" : "🔴"}</IconBtn>
                   <IconBtn
                     onClick={() => {
-                      removeProduct(p.id);
-                      toast("Producto eliminado");
+                      removeBusiness(b.id);
+                      toast("Restaurante eliminado");
                     }}
                   >
                     🗑️
@@ -719,8 +999,376 @@ function Admin() {
                 </div>
               </div>
             ))}
+          </div>
         </section>
       )}
+
+      {/* TAB 3: PRODUCTOS & MENÚ */}
+      {tab === "productos" && (
+        <section className="mt-6 space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+            {role === "superadmin" ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-muted-foreground">Restaurante:</span>
+                <select
+                  value={selected}
+                  onChange={(e) => setSelected(e.target.value)}
+                  className="rounded-xl border border-border bg-card px-3 py-2 text-xs text-white"
+                >
+                  {businesses.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <p className="text-sm font-bold text-white">
+                Menú de:{" "}
+                <strong className="text-cyan-400">{myBusiness?.name || "Tu Restaurante"}</strong>
+              </p>
+            )}
+
+            <button
+              onClick={() =>
+                setPForm(
+                  emptyProduct(
+                    role === "restaurante" ? currentUser?.businessId || selected : selected,
+                  ),
+                )
+              }
+              className="rounded-xl bg-cyan-500 px-4 py-2 text-xs font-black text-black"
+            >
+              + Agregar Plato al Menú
+            </button>
+          </div>
+
+          {pForm && (
+            <div className="surface-card space-y-4 rounded-2xl border border-cyan-500/40 p-5 bg-card">
+              <h4 className="font-display text-sm font-bold text-white">
+                {pForm.id.startsWith("p-") ? "Nuevo Plato" : "Editar Plato"}
+              </h4>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Row
+                  label="Nombre del Plato / Producto"
+                  value={pForm.name}
+                  onChange={(v) => setPForm({ ...pForm, name: v })}
+                />
+                <Row
+                  label="Categoría del Plato (ej: Hamburguesas, Bebidas)"
+                  value={pForm.category}
+                  onChange={(v) => setPForm({ ...pForm, category: v })}
+                />
+                <Row
+                  label="Descripción / Ingredientes"
+                  value={pForm.description}
+                  onChange={(v) => setPForm({ ...pForm, description: v })}
+                />
+                <Row
+                  label="Precio (COP)"
+                  value={String(pForm.price)}
+                  onChange={(v) => setPForm({ ...pForm, price: Number(v.replace(/\D/g, "")) || 0 })}
+                />
+                <Row
+                  label="Emoji / Icono"
+                  value={pForm.emoji}
+                  onChange={(v) => setPForm({ ...pForm, emoji: v })}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => {
+                    if (!pForm.name.trim() || !pForm.category.trim())
+                      return toast.error("Nombre y categoría son obligatorios");
+                    saveProduct({
+                      ...pForm,
+                      businessId:
+                        role === "restaurante"
+                          ? currentUser?.businessId || selected
+                          : pForm.businessId || selected,
+                    });
+                    setPForm(null);
+                    toast.success("Plato guardado en Firestore");
+                  }}
+                  className="rounded-xl bg-cyan-500 px-5 py-2.5 text-xs font-black text-black"
+                >
+                  Guardar Plato
+                </button>
+                <button
+                  onClick={() => setPForm(null)}
+                  className="rounded-xl border border-border px-4 text-xs font-bold text-white"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {products
+              .filter(
+                (p) =>
+                  p.businessId === (role === "restaurante" ? currentUser?.businessId : selected),
+              )
+              .map((p) => (
+                <div
+                  key={p.id}
+                  className="surface-card flex items-center gap-3 p-4 rounded-xl border border-border"
+                >
+                  <span className="grid size-10 place-items-center rounded-xl bg-secondary text-xl">
+                    {p.emoji}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-white">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {p.category} · <strong className="text-cyan-300">{cop(p.price)}</strong>
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <IconBtn onClick={() => setPForm(p)}>✏️</IconBtn>
+                    <IconBtn onClick={() => saveProduct({ ...p, active: !p.active })}>
+                      {p.active ? "⏸️" : "▶️"}
+                    </IconBtn>
+                    <IconBtn
+                      onClick={() => {
+                        removeProduct(p.id);
+                        toast("Producto eliminado");
+                      }}
+                    >
+                      🗑️
+                    </IconBtn>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
+
+      {/* TAB 4: AJUSTES & HORARIOS (SUPERADMIN ONLY) */}
+      {tab === "ajustes" && role === "superadmin" && (
+        <section className="mt-6 max-w-xl space-y-5">
+          <div className="surface-card space-y-4 p-5 rounded-2xl border border-border">
+            <h3 className="font-display text-sm font-bold text-white">
+              ⚙️ Parámetros Globales de Central Nubex
+            </h3>
+
+            <Row
+              label="WhatsApp de la Central Nubex (Receptor de Despachos)"
+              value={config.centralWhatsapp}
+              onChange={(v) => updateConfig({ centralWhatsapp: v })}
+            />
+
+            <Row
+              label="Horario General de la Plataforma (Ej: 7:00 am a 11:00 pm)"
+              value={config.centralSchedule}
+              onChange={(v) => updateConfig({ centralSchedule: v })}
+            />
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold text-muted-foreground">
+                  Tarifa Urbana Pitalito
+                </span>
+                <input
+                  type="number"
+                  value={config.defaultUrbanDeliveryFee}
+                  onChange={(e) =>
+                    updateConfig({ defaultUrbanDeliveryFee: Number(e.target.value) || 0 })
+                  }
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-white"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold text-muted-foreground">
+                  Tarifa Base Afueras
+                </span>
+                <input
+                  type="number"
+                  value={config.defaultOutskirtsDeliveryFee}
+                  onChange={(e) =>
+                    updateConfig({ defaultOutskirtsDeliveryFee: Number(e.target.value) || 0 })
+                  }
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-white"
+                />
+              </label>
+            </div>
+
+            <div className="border-t border-border pt-4 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400">
+                💳 Cuentas para Transferencias
+              </h4>
+              <Row
+                label="Número Nequi"
+                value={config.nequiNumber || ""}
+                onChange={(v) => updateConfig({ nequiNumber: v })}
+              />
+              <Row
+                label="Número Daviplata"
+                value={config.daviplataNumber || ""}
+                onChange={(v) => updateConfig({ daviplataNumber: v })}
+              />
+              <Row
+                label="Cuenta Bancolombia"
+                value={config.bancolombiaNumber || ""}
+                onChange={(v) => updateConfig({ bancolombiaNumber: v })}
+              />
+            </div>
+
+            <button
+              onClick={() => toast.success("Configuración actualizada con éxito")}
+              className="w-full rounded-xl bg-cyan-500 py-3 text-xs font-black text-black"
+            >
+              Guardar Configuración
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* MODAL GESTIONAR DESPACHO */}
+      {editingOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="surface-card w-full max-w-lg space-y-4 rounded-2xl border border-cyan-500/40 p-6 shadow-2xl bg-card">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <span className="font-mono text-xs font-black text-cyan-300">
+                  {editingOrder.code}
+                </span>
+                <h3 className="font-display text-base font-black text-white">
+                  Gestionar Despacho & Domiciliario
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditingOrder(null)}
+                className="rounded-lg border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold text-muted-foreground">
+                    Estado del Pedido
+                  </span>
+                  <select
+                    value={editingOrder.status || "recibido"}
+                    onChange={(e) =>
+                      setEditingOrder({
+                        ...editingOrder,
+                        status: e.target.value as OrderStatus,
+                      })
+                    }
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-white"
+                  >
+                    <option value="recibido">🟡 Recibido</option>
+                    <option value="en_preparacion">👨‍🍳 En Preparación</option>
+                    <option value="en_camino">🛵 En Camino</option>
+                    <option value="entregado">🟢 Entregado</option>
+                    <option value="cancelado">🔴 Cancelado</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold text-muted-foreground">
+                    Tarifa Flete (COP)
+                  </span>
+                  <input
+                    type="number"
+                    value={editingOrder.deliveryFee}
+                    onChange={(e) => {
+                      const fee = Number(e.target.value) || 0;
+                      setEditingOrder({
+                        ...editingOrder,
+                        deliveryFee: fee,
+                        total: editingOrder.subtotal + fee,
+                      });
+                    }}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-white"
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-muted-foreground">
+                  Asignar Domiciliario Registrado
+                </span>
+                <select
+                  value={editingOrder.assignedDriver || ""}
+                  onChange={(e) => {
+                    const selUser = users.find((u) => u.name === e.target.value);
+                    setEditingOrder({
+                      ...editingOrder,
+                      assignedDriver: e.target.value,
+                      driverPhone: selUser?.phone || editingOrder.driverPhone,
+                    });
+                  }}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs text-white"
+                >
+                  <option value="">-- Sin asignar --</option>
+                  {users
+                    .filter((u) => u.role === "domiciliario")
+                    .map((d) => (
+                      <option key={d.id} value={d.name}>
+                        🛵 {d.name} {d.phone ? `(${d.phone})` : ""}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <Row
+                label="Nombre Manual Repartidor"
+                value={editingOrder.assignedDriver || ""}
+                onChange={(v) => setEditingOrder({ ...editingOrder, assignedDriver: v })}
+              />
+
+              <Row
+                label="Teléfono WhatsApp Repartidor"
+                value={editingOrder.driverPhone || ""}
+                onChange={(v) => setEditingOrder({ ...editingOrder, driverPhone: v })}
+              />
+            </div>
+
+            <div className="flex gap-2 pt-3 border-t border-border">
+              <button
+                onClick={() => {
+                  updateOrder(editingOrder.id, {
+                    status: editingOrder.status,
+                    deliveryFee: editingOrder.deliveryFee,
+                    total: editingOrder.total,
+                    assignedDriver: editingOrder.assignedDriver,
+                    driverPhone: editingOrder.driverPhone,
+                  });
+                  toast.success("Despacho actualizado en Firestore");
+
+                  if (editingOrder.driverPhone && editingOrder.assignedDriver) {
+                    sendDriverWhatsApp(
+                      editingOrder,
+                      editingOrder.driverPhone,
+                      editingOrder.assignedDriver,
+                    );
+                  }
+
+                  setEditingOrder(null);
+                }}
+                className="flex-1 rounded-xl bg-cyan-500 py-2.5 text-xs font-black text-black"
+              >
+                Guardar & Notificar Domiciliario
+              </button>
+              <button
+                onClick={() => setEditingOrder(null)}
+                className="rounded-xl border border-border px-4 text-xs font-bold text-white"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <RoleAuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </main>
   );
 }
@@ -736,11 +1384,11 @@ function Row({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-bold">{label}</span>
+      <span className="mb-1 block text-xs font-bold text-muted-foreground">{label}</span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+        className="w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-white outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
       />
     </label>
   );
@@ -750,9 +1398,11 @@ function IconBtn({ onClick, children }: { onClick: () => void; children: React.R
   return (
     <button
       onClick={onClick}
-      className="grid size-9 place-items-center rounded-lg border border-border text-sm"
+      className="grid size-9 place-items-center rounded-lg border border-border text-sm hover:bg-secondary text-white"
     >
       {children}
     </button>
   );
 }
+
+export default Admin;

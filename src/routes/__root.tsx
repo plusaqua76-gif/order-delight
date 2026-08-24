@@ -7,29 +7,30 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { StoreProvider, useStore } from "@/lib/store";
 import { Toaster } from "@/components/ui/sonner";
 import { NubexLogo } from "@/components/NubexLogo";
+import { RoleAuthModal } from "@/components/RoleAuthModal";
 
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
+        <h2 className="mt-4 text-xl font-semibold text-foreground">Página no encontrada</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          The page you're looking for doesn't exist or has been moved.
+          La dirección que buscas no existe o ha sido movida.
         </p>
         <div className="mt-6">
           <Link
             to="/"
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Go home
+            Volver al inicio
           </Link>
         </div>
       </div>
@@ -48,10 +49,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+          Hubo un problema al cargar esta página
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          Puedes intentar recargar la página o volver a la página principal.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -61,13 +62,13 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Try again
+            Reintentar
           </button>
           <a
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
-            Go home
+            Ir al inicio
           </a>
         </div>
       </div>
@@ -117,21 +118,24 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   return (
     <QueryClientProvider client={queryClient}>
       <StoreProvider>
-        <SiteHeader />
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <SiteHeader onOpenAuth={() => setAuthModalOpen(true)} />
         <Outlet />
-        <SiteFooter />
+        <SiteFooter onOpenAuth={() => setAuthModalOpen(true)} />
+        <RoleAuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
         <Toaster position="top-center" richColors />
       </StoreProvider>
     </QueryClientProvider>
   );
 }
 
-function SiteHeader() {
+function SiteHeader({ onOpenAuth }: { onOpenAuth: () => void }) {
+  const { currentUser } = useStore();
+
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-3 px-4">
@@ -139,12 +143,22 @@ function SiteHeader() {
           <NubexLogo size="md" subtitleText="Pitalito, Huila" />
         </Link>
         <div className="flex items-center gap-2">
-          <Link
-            to="/admin"
-            className="rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            Admin
-          </Link>
+          {currentUser ? (
+            <Link
+              to="/admin"
+              className="flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-950/40 px-3 py-1.5 text-xs font-bold text-cyan-300 transition-colors hover:bg-cyan-900/50"
+            >
+              <span className="h-2 w-2 rounded-full bg-cyan-400"></span>
+              <span className="uppercase text-[11px]">{currentUser.role}</span>
+            </Link>
+          ) : (
+            <Link
+              to="/admin"
+              className="rounded-lg px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              Acceso Admin
+            </Link>
+          )}
           <CartButton />
         </div>
       </div>
@@ -169,15 +183,31 @@ function CartButton() {
   );
 }
 
-function SiteFooter() {
+function SiteFooter({ onOpenAuth }: { onOpenAuth: () => void }) {
   return (
     <footer className="mt-16 border-t border-border/70 py-8 text-center text-xs text-muted-foreground">
       <div className="mx-auto flex flex-col items-center justify-center gap-2">
         <NubexLogo size="sm" showSubtitle={false} />
         <p className="font-semibold text-foreground">Domicilios Nubex · Pitalito, Huila</p>
         <p className="text-muted-foreground">
-          Pedidos directos por WhatsApp · Tarifa fija de $6.000 COP
+          Pedidos directos por WhatsApp · Tarifa fija urbana $6.000 COP
         </p>
+
+        <div className="mt-3 flex items-center justify-center gap-4 text-[11px]">
+          <button
+            onClick={onOpenAuth}
+            className="text-muted-foreground hover:text-cyan-400 font-semibold underline underline-offset-4 transition-colors"
+          >
+            🔑 Ingreso por Correo / Roles
+          </button>
+          <span>·</span>
+          <Link
+            to="/admin"
+            className="text-muted-foreground hover:text-cyan-400 font-semibold underline underline-offset-4 transition-colors"
+          >
+            Panel Administrativo
+          </Link>
+        </div>
       </div>
     </footer>
   );

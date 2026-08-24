@@ -1,13 +1,16 @@
 import { cop } from "./format";
 import type { CartItem } from "./store";
-import type { Business } from "@/data/demo";
+import type { Business, PaymentMethod, DeliveryZoneType } from "@/data/demo";
 
 export type CheckoutData = {
   name: string;
   address: string;
   neighborhood: string;
   phone: string;
-  payment: "Efectivo" | "Nequi" | "Daviplata";
+  zone: DeliveryZoneType;
+  manualDeliveryFee?: number;
+  payment: PaymentMethod;
+  cashAmount?: number;
   reference: string;
 };
 
@@ -23,50 +26,67 @@ export function buildOrderMessage(opts: {
   subtotal: number;
   deliveryFee: number;
   data: CheckoutData;
+  recipientType: "central" | "restaurante";
 }) {
-  const { code, business, items, subtotal, deliveryFee, data } = opts;
+  const { code, business, items, subtotal, deliveryFee, data, recipientType } = opts;
   const total = subtotal + deliveryFee;
+  const changeNeeded =
+    data.payment === "Efectivo" && data.cashAmount && data.cashAmount > total
+      ? data.cashAmount - total
+      : 0;
+
   const lines = items.map(
     (i) =>
       `  ▫️ ${i.qty}x ${i.name} — ${cop(i.price * i.qty)}${i.note ? `\n     ↳ 📝 Nota: ${i.note}` : ""}`,
   );
 
+  const headerTitle =
+    recipientType === "central"
+      ? `🛵 *CENTRAL DOMICILIOS NUBEX* · Pitalito\n⚡ _Asignar domiciliario & Coordinar despacho_`
+      : `👨‍🍳 *ORDEN PARA COCINA / RESTAURANTE*\n⚡ _Alistar pedido para despacho Nubex_`;
+
   return [
     `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-    `☁️ 🛵 *DOMICILIOS NUBEX* · Pitalito`,
-    `⚡ _Plataforma Oficial de Domicilios_`,
+    headerTitle,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
     `📌 *PEDIDO:* *${code}*`,
     ``,
-    `🏪 *RESTAURANTE EMISOR:*`,
+    `🏪 *RESTAURANTE:*`,
     `*${business.emoji || "🍽️"} ${business.name}*`,
     `🏷️ Categoría: ${business.category}`,
-    business.logoUrl ? `🖼️ Logo Restaurante: ${business.logoUrl}` : undefined,
+    business.phone ? `📞 WhatsApp Restaurante: ${business.phone}` : undefined,
     ``,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-    `🧾 *DETALLE DE PRODUCTOS:*`,
+    `🧾 *PRODUCTOS A ALISTAR:*`,
     ...lines,
     ``,
-    `💰 Subtotal: ${cop(subtotal)}`,
-    `🛵 Domicilio: ${cop(deliveryFee)}`,
-    `💵 *TOTAL A PAGAR: ${cop(total)}*`,
+    `💰 Subtotal comida: ${cop(subtotal)}`,
+    `🛵 Domicilio (${data.zone === "afueras" ? "Afueras / Especial" : "Casco Urbano"}): ${cop(deliveryFee)}`,
+    `💵 *TOTAL A COBRAR: ${cop(total)}*`,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
     ``,
-    `👤 *DATOS DEL CLIENTE:*`,
-    `• Nombre: ${data.name}`,
+    `📍 *DATOS DE ENTREGA:*`,
+    `• Cliente: ${data.name}`,
     `• Teléfono: ${data.phone}`,
     `• Dirección: ${data.address}`,
-    `• Barrio: ${data.neighborhood}`,
-    data.reference ? `• Referencia: ${data.reference}` : undefined,
+    `• Barrio/Sector: ${data.neighborhood} (${data.zone === "afueras" ? "Afueras" : "Urbano"})`,
+    data.reference ? `• Punto de referencia: ${data.reference}` : undefined,
     ``,
     `💳 *MÉTODO DE PAGO:* ${data.payment}`,
+    data.payment === "Efectivo" && data.cashAmount
+      ? `💵 Paga con: ${cop(data.cashAmount)}${changeNeeded > 0 ? ` (Llevar cambio de ${cop(changeNeeded)})` : " (Pago exacto)"}`
+      : undefined,
     ``,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-    `🛵 _Despacho gestionado por Domicilios Nubex Pitalito_`,
+    recipientType === "central"
+      ? `🚨 *ACCIÓN CENTRAL:* Notificar al restaurante para cocción y asignar domiciliario.`
+      : `👨‍🍳 *ACCIÓN RESTAURANTE:* Empezar preparación. Un domiciliario Nubex recogerá el pedido.`,
   ]
     .filter((l): l is string => l !== undefined)
     .join("\n");
 }
 
-export const waLink = (phone: string, message: string) =>
-  `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+export const waLink = (phone: string, message: string) => {
+  const cleanPhone = phone.replace(/\D/g, "");
+  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+};
