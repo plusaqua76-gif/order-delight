@@ -1,6 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { NubexLogo } from "@/components/NubexLogo";
+import { VehicleIllustration } from "@/components/VehicleIllustrations";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faWeightHanging,
+  faRulerCombined,
+  faCircleCheck,
+  faArrowRight,
+} from "@fortawesome/free-solid-svg-icons";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -37,7 +45,8 @@ interface VehicleOption {
   title: string;
   badge: string;
   badgeColor: string;
-  icon: string;
+  accentColor: string;
+  emoji: string;
   capacity: string;
   dimensions: string;
   idealFor: string;
@@ -49,7 +58,8 @@ const VEHICLES: VehicleOption[] = [
     title: "Motocarro / Motocarguero",
     badge: "Económico & Rápido",
     badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-    icon: "🛵",
+    accentColor: "border-amber-500/30 bg-amber-950/20",
+    emoji: "🛵",
     capacity: "Hasta 350 kg",
     dimensions: "Platón 1.4m x 1.1m",
     idealFor: "Cargas pequeñas, compras de ferretería, electrodomésticos individuales o cajas.",
@@ -59,7 +69,8 @@ const VEHICLES: VehicleOption[] = [
     title: "Camioneta Platón / Estacas",
     badge: "Más Solicitado",
     badgeColor: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-    icon: "🛻",
+    accentColor: "border-cyan-500/30 bg-cyan-950/20",
+    emoji: "🛻",
     capacity: "Hasta 1.2 Toneladas",
     dimensions: "Estacas 2.2m x 1.6m",
     idealFor: "Muebles de hogar, camas, neveras, lavadoras, materiales y trasteos medianos.",
@@ -69,7 +80,8 @@ const VEHICLES: VehicleOption[] = [
     title: "Camión Turbo (NHR / NKR)",
     badge: "Mudanzas Completas",
     badgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-    icon: "🚛",
+    accentColor: "border-emerald-500/30 bg-emerald-950/20",
+    emoji: "🚛",
     capacity: "De 2.5 a 4.5 Toneladas",
     dimensions: "Furgón / Carrocería 4.5m",
     idealFor: "Mudanzas completas de casa o apartamento, locales comerciales y mercancía.",
@@ -79,7 +91,8 @@ const VEHICLES: VehicleOption[] = [
     title: "Camión Grande / Sencillo",
     badge: "Carga Pesada & Nacional",
     badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-    icon: "🚚",
+    accentColor: "border-purple-500/30 bg-purple-950/20",
+    emoji: "🚚",
     capacity: "De 5 a 10 Toneladas",
     dimensions: "Carrocería 6m a 7.5m",
     idealFor: "Mudanzas a otras ciudades, productos agrícolas, café, materiales pesados.",
@@ -166,7 +179,7 @@ export function Home() {
       `📌 *Solicitud Nº:* ${requestCode}`,
       ``,
       `🚚 *VEHÍCULO SOLICITADO:*`,
-      `*${activeVehicle.icon} ${activeVehicle.title}*`,
+      `*${activeVehicle.emoji} ${activeVehicle.title}*`,
       `• Capacidad: ${activeVehicle.capacity}`,
       ``,
       `🗺️ *TRAYECTO:*`,
@@ -419,27 +432,45 @@ export function Home() {
                       }`}
                     >
                       <div>
-                        <div className="flex items-center justify-between mb-2 sm:mb-3">
-                          <span className="text-3xl sm:text-4xl drop-shadow group-hover:scale-110 transition-transform">
-                            {veh.icon}
-                          </span>
+                        {/* Top Badge & Category indicator */}
+                        <div className="flex items-center justify-between mb-3">
                           <span
                             className={`text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 sm:py-1 rounded-md sm:rounded-lg border ${veh.badgeColor}`}
                           >
                             {veh.badge}
                           </span>
+                          <span className="text-xs font-semibold text-muted-foreground/80">
+                            {veh.emoji}
+                          </span>
                         </div>
 
-                        <h4 className="font-display font-bold text-sm sm:text-base text-white">
+                        {/* Realistic Vehicle Illustration Showcase Box */}
+                        <div className="relative w-full aspect-[16/10] mb-3.5 rounded-xl bg-gradient-to-b from-slate-900/90 to-slate-950/90 border border-slate-700/50 p-2.5 flex items-center justify-center overflow-hidden shadow-inner group-hover:border-cyan-500/40 transition-colors">
+                          {/* Subtle ambient light glow behind vehicle */}
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_60%,rgba(6,182,212,0.12),transparent_70%)] pointer-events-none" />
+                          <div className="w-full h-full flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                            <VehicleIllustration type={veh.id} />
+                          </div>
+                        </div>
+
+                        <h4 className="font-display font-bold text-sm sm:text-base text-white group-hover:text-cyan-300 transition-colors">
                           {veh.title}
                         </h4>
 
-                        <div className="mt-2 space-y-0.5 sm:space-y-1 text-xs">
-                          <p className="font-bold text-cyan-300 flex items-center gap-1 text-[11px] sm:text-xs">
-                            <span>⚖️</span> {veh.capacity}
+                        <div className="mt-2 space-y-1 text-xs">
+                          <p className="font-bold text-cyan-300 flex items-center gap-1.5 text-[11px] sm:text-xs">
+                            <FontAwesomeIcon
+                              icon={faWeightHanging}
+                              className="text-[11px] opacity-80"
+                            />
+                            <span>{veh.capacity}</span>
                           </p>
-                          <p className="text-[10px] sm:text-[11px] text-muted-foreground">
-                            📐 {veh.dimensions}
+                          <p className="text-[10px] sm:text-[11px] text-muted-foreground flex items-center gap-1.5">
+                            <FontAwesomeIcon
+                              icon={faRulerCombined}
+                              className="text-[10px] opacity-70"
+                            />
+                            <span>{veh.dimensions}</span>
                           </p>
                         </div>
 
@@ -449,10 +480,23 @@ export function Home() {
                       </div>
 
                       <div className="mt-4 sm:mt-5 pt-2.5 sm:pt-3 border-t border-border/50 flex items-center justify-between text-[11px] sm:text-xs">
-                        <span className="font-black text-cyan-300 group-hover:underline">
-                          Seleccionar →
+                        <span className="font-black text-cyan-300 group-hover:underline flex items-center gap-1">
+                          Seleccionar
+                          <FontAwesomeIcon
+                            icon={faArrowRight}
+                            className="text-[10px] transition-transform group-hover:translate-x-0.5"
+                          />
                         </span>
-                        <span className="text-sm sm:text-base">{isSelected ? "🔘" : "⚪"}</span>
+                        <span className="text-sm">
+                          {isSelected ? (
+                            <FontAwesomeIcon
+                              icon={faCircleCheck}
+                              className="text-cyan-400 text-base"
+                            />
+                          ) : (
+                            <span className="size-3.5 rounded-full border border-muted-foreground/50 inline-block" />
+                          )}
+                        </span>
                       </div>
                     </button>
                   );
@@ -486,11 +530,12 @@ export function Home() {
                 <button
                   type="button"
                   onClick={() => setCurrentStep(1)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-cyan-950/70 border border-cyan-500/40 px-3 py-1.5 text-xs text-cyan-300 hover:bg-cyan-900/60 transition-colors w-fit"
+                  className="inline-flex items-center gap-2.5 rounded-xl bg-cyan-950/80 border border-cyan-500/50 px-3.5 py-1.5 text-xs text-cyan-300 hover:bg-cyan-900/70 transition-colors w-fit shadow-md"
                 >
-                  <span>
-                    {activeVehicle.icon} {activeVehicle.title}
-                  </span>
+                  <div className="w-10 h-6 flex items-center justify-center">
+                    <VehicleIllustration type={activeVehicle.id} />
+                  </div>
+                  <span className="font-bold">{activeVehicle.title}</span>
                   <span className="text-[10px] text-cyan-400 font-bold underline">(Cambiar)</span>
                 </button>
               </div>
@@ -692,8 +737,11 @@ export function Home() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] sm:text-xs bg-cyan-950/70 border border-cyan-500/40 px-2.5 sm:px-3 py-1 rounded-xl text-cyan-300 font-bold">
-                    {activeVehicle.icon} {activeVehicle.title}
+                  <span className="text-[11px] sm:text-xs bg-cyan-950/80 border border-cyan-500/50 px-2.5 sm:px-3 py-1 rounded-xl text-cyan-300 font-bold inline-flex items-center gap-2 shadow-sm">
+                    <div className="w-8 h-5 flex items-center justify-center">
+                      <VehicleIllustration type={activeVehicle.id} />
+                    </div>
+                    <span>{activeVehicle.title}</span>
                   </span>
                   <span className="text-[11px] sm:text-xs bg-secondary px-2.5 sm:px-3 py-1 rounded-xl text-muted-foreground truncate max-w-[200px] sm:max-w-none">
                     📍 {origin} → {destination}
