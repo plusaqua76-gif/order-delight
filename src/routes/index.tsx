@@ -159,11 +159,30 @@ function Home() {
             </Link>
           );
         })}
-        {list.length === 0 && (
-          <p className="surface-card p-6 text-center text-sm text-muted-foreground">
+        {businesses.length === 0 ? (
+          <div className="col-span-full surface-card p-10 text-center rounded-2xl border border-border">
+            <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-secondary text-3xl">
+              🏪
+            </div>
+            <h3 className="mt-3 text-base font-bold text-white">
+              Tu catálogo está listo para comenzar
+            </h3>
+            <p className="mt-1 max-w-md mx-auto text-xs text-muted-foreground">
+              Aún no se han agregado restaurantes ni comercios aliados. Ingresa al panel de
+              administración para registrar tus primeros negocios y productos en Pitalito.
+            </p>
+            <Link
+              to="/admin"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-5 py-2.5 text-xs font-black text-black hover:bg-cyan-400"
+            >
+              👑 Ir al Panel de Administración
+            </Link>
+          </div>
+        ) : list.length === 0 ? (
+          <p className="col-span-full surface-card p-6 text-center text-sm text-muted-foreground">
             No encontramos negocios con esos filtros.
           </p>
-        )}
+        ) : null}
       </section>
     </main>
   );

@@ -81,6 +81,7 @@ export function Admin() {
     removeUser,
     logoutUser,
     setCurrentUserDirectly,
+    resetDatabaseToZero,
   } = useStore();
 
   const [tab, setTab] = useState<"despacho" | "negocios" | "productos" | "usuarios" | "ajustes">(
@@ -91,6 +92,8 @@ export function Admin() {
   const [pForm, setPForm] = useState<Product | null>(null);
   const [uForm, setUForm] = useState<AppUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   // Filters for orders
   const [dateFilter, setDateFilter] = useState<DateRangeFilter>("all");
@@ -969,37 +972,58 @@ export function Admin() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {businesses.map((b) => (
-              <div
-                key={b.id}
-                className="surface-card flex items-center gap-3 p-4 rounded-xl border border-border"
+          {businesses.length === 0 ? (
+            <div className="surface-card p-10 text-center rounded-2xl border border-dashed border-border">
+              <span className="grid size-14 mx-auto place-items-center rounded-2xl bg-secondary text-3xl">
+                🏪
+              </span>
+              <h4 className="mt-3 text-sm font-bold text-white">
+                No tienes restaurantes registrados
+              </h4>
+              <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">
+                Comienza agregando los comercios aliados de Pitalito. Cada uno tendrá su propio
+                menú, horario y número de WhatsApp.
+              </p>
+              <button
+                onClick={() => setBForm(emptyBusiness())}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-black text-black hover:bg-cyan-400"
               >
-                <span className="grid size-12 place-items-center rounded-xl bg-secondary text-2xl">
-                  {b.emoji}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-white">{b.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {b.category} · 📱 {b.phone}
-                  </p>
-                  <p className="text-[11px] text-cyan-400">🕒 {b.schedule}</p>
+                + Registrar Primer Restaurante
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {businesses.map((b) => (
+                <div
+                  key={b.id}
+                  className="surface-card flex items-center gap-3 p-4 rounded-xl border border-border"
+                >
+                  <span className="grid size-12 place-items-center rounded-xl bg-secondary text-2xl">
+                    {b.emoji}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-white">{b.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {b.category} · 📱 {b.phone}
+                    </p>
+                    <p className="text-[11px] text-cyan-400">🕒 {b.schedule}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <IconBtn onClick={() => setBForm(b)}>✏️</IconBtn>
+                    <IconBtn onClick={() => toggleBusiness(b.id)}>{b.active ? "🟢" : "🔴"}</IconBtn>
+                    <IconBtn
+                      onClick={() => {
+                        removeBusiness(b.id);
+                        toast("Restaurante eliminado");
+                      }}
+                    >
+                      🗑️
+                    </IconBtn>
+                  </div>
                 </div>
-                <div className="flex shrink-0 gap-1">
-                  <IconBtn onClick={() => setBForm(b)}>✏️</IconBtn>
-                  <IconBtn onClick={() => toggleBusiness(b.id)}>{b.active ? "🟢" : "🔴"}</IconBtn>
-                  <IconBtn
-                    onClick={() => {
-                      removeBusiness(b.id);
-                      toast("Restaurante eliminado");
-                    }}
-                  >
-                    🗑️
-                  </IconBtn>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -1010,17 +1034,23 @@ export function Admin() {
             {role === "superadmin" ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-muted-foreground">Restaurante:</span>
-                <select
-                  value={selected}
-                  onChange={(e) => setSelected(e.target.value)}
-                  className="rounded-xl border border-border bg-card px-3 py-2 text-xs text-white"
-                >
-                  {businesses.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
+                {businesses.length === 0 ? (
+                  <span className="text-xs text-amber-400 font-medium">
+                    (Debes crear primero un restaurante en la pestaña "Negocios")
+                  </span>
+                ) : (
+                  <select
+                    value={selected || businesses[0]?.id || ""}
+                    onChange={(e) => setSelected(e.target.value)}
+                    className="rounded-xl border border-border bg-card px-3 py-2 text-xs text-white"
+                  >
+                    {businesses.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
             ) : (
               <p className="text-sm font-bold text-white">
@@ -1030,13 +1060,18 @@ export function Admin() {
             )}
 
             <button
-              onClick={() =>
-                setPForm(
-                  emptyProduct(
-                    role === "restaurante" ? currentUser?.businessId || selected : selected,
-                  ),
-                )
-              }
+              onClick={() => {
+                if (businesses.length === 0 && role === "superadmin") {
+                  toast.error("Primero registra un restaurante en la pestaña 'Negocios'");
+                  setTab("negocios");
+                  return;
+                }
+                const targetBizId =
+                  role === "restaurante"
+                    ? currentUser?.businessId || businesses[0]?.id || ""
+                    : selected || businesses[0]?.id || "";
+                setPForm(emptyProduct(targetBizId));
+              }}
               className="rounded-xl bg-cyan-500 px-4 py-2 text-xs font-black text-black"
             >
               + Agregar Plato al Menú
@@ -1081,12 +1116,14 @@ export function Admin() {
                   onClick={() => {
                     if (!pForm.name.trim() || !pForm.category.trim())
                       return toast.error("Nombre y categoría son obligatorios");
+                    const bizId =
+                      role === "restaurante"
+                        ? currentUser?.businessId || businesses[0]?.id || ""
+                        : selected || pForm.businessId || businesses[0]?.id || "";
+                    if (!bizId) return toast.error("Selecciona un restaurante válido");
                     saveProduct({
                       ...pForm,
-                      businessId:
-                        role === "restaurante"
-                          ? currentUser?.businessId || selected
-                          : pForm.businessId || selected,
+                      businessId: bizId,
                     });
                     setPForm(null);
                     toast.success("Plato guardado en Firestore");
@@ -1105,43 +1142,65 @@ export function Admin() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {products
-              .filter(
-                (p) =>
-                  p.businessId === (role === "restaurante" ? currentUser?.businessId : selected),
-              )
-              .map((p) => (
-                <div
-                  key={p.id}
-                  className="surface-card flex items-center gap-3 p-4 rounded-xl border border-border"
-                >
-                  <span className="grid size-10 place-items-center rounded-xl bg-secondary text-xl">
-                    {p.emoji}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-white">{p.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {p.category} · <strong className="text-cyan-300">{cop(p.price)}</strong>
-                    </p>
+          {products.filter(
+            (p) =>
+              p.businessId ===
+              (role === "restaurante" ? currentUser?.businessId : selected || businesses[0]?.id),
+          ).length === 0 ? (
+            <div className="surface-card p-10 text-center rounded-2xl border border-dashed border-border">
+              <span className="grid size-14 mx-auto place-items-center rounded-2xl bg-secondary text-3xl">
+                🍲
+              </span>
+              <h4 className="mt-3 text-sm font-bold text-white">
+                No hay platos en el menú de este restaurante
+              </h4>
+              <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">
+                Carga los platos, combos y bebidas disponibles para que los clientes en Pitalito
+                puedan armar su pedido.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {products
+                .filter(
+                  (p) =>
+                    p.businessId ===
+                    (role === "restaurante"
+                      ? currentUser?.businessId
+                      : selected || businesses[0]?.id),
+                )
+                .map((p) => (
+                  <div
+                    key={p.id}
+                    className="surface-card flex items-center gap-3 p-4 rounded-xl border border-border"
+                  >
+                    <span className="grid size-10 place-items-center rounded-xl bg-secondary text-xl">
+                      {p.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-white">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.category} · <strong className="text-cyan-300">{cop(p.price)}</strong>
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <IconBtn onClick={() => setPForm(p)}>✏️</IconBtn>
+                      <IconBtn onClick={() => saveProduct({ ...p, active: !p.active })}>
+                        {p.active ? "⏸️" : "▶️"}
+                      </IconBtn>
+                      <IconBtn
+                        onClick={() => {
+                          removeProduct(p.id);
+                          toast("Producto eliminado");
+                        }}
+                      >
+                        🗑️
+                      </IconBtn>
+                    </div>
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    <IconBtn onClick={() => setPForm(p)}>✏️</IconBtn>
-                    <IconBtn onClick={() => saveProduct({ ...p, active: !p.active })}>
-                      {p.active ? "⏸️" : "▶️"}
-                    </IconBtn>
-                    <IconBtn
-                      onClick={() => {
-                        removeProduct(p.id);
-                        toast("Producto eliminado");
-                      }}
-                    >
-                      🗑️
-                    </IconBtn>
-                  </div>
-                </div>
-              ))}
-          </div>
+                ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -1221,6 +1280,25 @@ export function Admin() {
               className="w-full rounded-xl bg-cyan-500 py-3 text-xs font-black text-black"
             >
               Guardar Configuración
+            </button>
+          </div>
+
+          {/* Zona de peligro: Reinicio a cero */}
+          <div className="surface-card space-y-3 p-5 rounded-2xl border border-red-500/30 bg-red-950/20">
+            <h4 className="text-sm font-bold text-red-400 flex items-center gap-2">
+              ⚠️ Zona de Reinicio Total (Empezar desde cero)
+            </h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Esta función borra de forma segura todos los restaurantes, platos, órdenes de prueba y
+              usuarios secundarios en Firestore, manteniendo tu rol de{" "}
+              <strong>Super Administrador ({currentUser?.email || "plusaqua76@gmail.com"})</strong>.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowResetConfirm(true)}
+              className="rounded-xl border border-red-500/50 bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-300 hover:bg-red-500/20 transition-all flex items-center gap-2"
+            >
+              🗑️ Dejar Empresa Sin Datos (Reiniciar a Cero)
             </button>
           </div>
         </section>
@@ -1362,6 +1440,61 @@ export function Admin() {
                 className="rounded-xl border border-border px-4 text-xs font-bold text-white"
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIRMACIÓN REINICIO A CERO */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
+          <div className="surface-card w-full max-w-md space-y-4 rounded-2xl border border-red-500/50 p-6 shadow-2xl bg-card">
+            <div className="flex items-center gap-3">
+              <span className="grid size-12 place-items-center rounded-xl bg-red-500/20 text-2xl text-red-400">
+                ⚠️
+              </span>
+              <div>
+                <h3 className="font-display text-base font-black text-white">
+                  ¿Reiniciar Empresa a Cero?
+                </h3>
+                <p className="text-xs text-muted-foreground">Esta acción no se puede deshacer.</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Se eliminarán todos los <strong>restaurantes</strong>, <strong>productos</strong>,{" "}
+              <strong>pedidos</strong> y <strong>usuarios secundarios</strong> de Firestore. Tu
+              cuenta de{" "}
+              <strong>Super Administrador ({currentUser?.email || "plusaqua76@gmail.com"})</strong>{" "}
+              permanecerá intacta para que puedas construir todo desde cero.
+            </p>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                disabled={isResetting}
+                onClick={async () => {
+                  try {
+                    setIsResetting(true);
+                    await resetDatabaseToZero();
+                    setShowResetConfirm(false);
+                    toast.success("Empresa restablecida a cero con éxito");
+                  } catch (e) {
+                    toast.error("Error al reiniciar la base de datos");
+                  } finally {
+                    setIsResetting(false);
+                  }
+                }}
+                className="flex-1 rounded-xl bg-red-600 hover:bg-red-500 py-3 text-xs font-black text-white transition-all disabled:opacity-50"
+              >
+                {isResetting ? "Limpiando Base de Datos..." : "Sí, Dejar Empresa a Cero"}
+              </button>
+              <button
+                disabled={isResetting}
+                onClick={() => setShowResetConfirm(false)}
+                className="rounded-xl border border-border px-4 text-xs font-bold text-white hover:bg-secondary"
+              >
+                Cancelar
               </button>
             </div>
           </div>

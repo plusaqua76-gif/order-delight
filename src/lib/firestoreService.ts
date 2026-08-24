@@ -1,10 +1,7 @@
 import { collection, doc, setDoc, deleteDoc, onSnapshot, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
 import {
-  demoBusinesses,
-  demoProducts,
-  demoOrders,
-  demoUsers,
+  initialSuperAdmin,
   DEFAULT_APP_CONFIG,
   type Business,
   type Product,
@@ -20,33 +17,60 @@ const ORDERS_COL = "orders";
 const USERS_COL = "users";
 
 /**
- * Inicializa la base de datos con los datos iniciales si las colecciones están vacías
+ * Inicializa la base de datos dejando solo el Super Administrador y configuración base
  */
 export async function initializeFirestoreSeed() {
   try {
-    const bizSnap = await getDocs(collection(db, BUSINESSES_COL));
-    if (bizSnap.empty) {
-      // Sembrar negocios
-      for (const b of demoBusinesses) {
-        await setDoc(doc(db, BUSINESSES_COL, b.id), b);
-      }
-      // Sembrar productos
-      for (const p of demoProducts) {
-        await setDoc(doc(db, PRODUCTS_COL, p.id), p);
-      }
-      // Sembrar pedidos iniciales
-      for (const o of demoOrders) {
-        await setDoc(doc(db, ORDERS_COL, o.id), o);
-      }
-      // Sembrar usuarios con roles
-      for (const u of demoUsers) {
-        await setDoc(doc(db, USERS_COL, u.id), u);
-      }
-      // Sembrar configuración
-      await setDoc(doc(db, "config", "settings"), DEFAULT_APP_CONFIG);
-    }
+    // Asegurar que exista el Super Administrador
+    await setDoc(doc(db, USERS_COL, initialSuperAdmin.id), initialSuperAdmin, { merge: true });
+
+    // Asegurar que exista la configuración básica
+    await setDoc(doc(db, "config", "settings"), DEFAULT_APP_CONFIG, { merge: true });
   } catch (err) {
-    console.warn("Error sembrando datos iniciales en Firestore:", err);
+    console.warn("Error inicializando superadministrador en Firestore:", err);
+  }
+}
+
+/**
+ * Limpia totalmente la base de datos de Firestore dejando la empresa en cero
+ * y conservando únicamente el rol de Super Administrador.
+ */
+export async function dbResetToAdminOnly(): Promise<void> {
+  try {
+    // 1. Borrar todos los negocios
+    const bizSnap = await getDocs(collection(db, BUSINESSES_COL));
+    for (const d of bizSnap.docs) {
+      await deleteDoc(d.ref);
+    }
+
+    // 2. Borrar todos los productos
+    const prodSnap = await getDocs(collection(db, PRODUCTS_COL));
+    for (const d of prodSnap.docs) {
+      await deleteDoc(d.ref);
+    }
+
+    // 3. Borrar todos los pedidos
+    const ordersSnap = await getDocs(collection(db, ORDERS_COL));
+    for (const d of ordersSnap.docs) {
+      await deleteDoc(d.ref);
+    }
+
+    // 4. Borrar todos los usuarios excepto el superadministrador
+    const usersSnap = await getDocs(collection(db, USERS_COL));
+    for (const d of usersSnap.docs) {
+      if (d.id !== initialSuperAdmin.id) {
+        await deleteDoc(d.ref);
+      }
+    }
+
+    // 5. Garantizar superadmin activo
+    await setDoc(doc(db, USERS_COL, initialSuperAdmin.id), initialSuperAdmin, { merge: true });
+
+    // 6. Restablecer configuración estándar
+    await setDoc(doc(db, "config", "settings"), DEFAULT_APP_CONFIG, { merge: true });
+  } catch (err) {
+    console.error("Error al restablecer la base de datos:", err);
+    throw err;
   }
 }
 
@@ -55,10 +79,8 @@ export function subscribeToBusinesses(callback: (data: Business[]) => void) {
   return onSnapshot(
     collection(db, BUSINESSES_COL),
     (snap) => {
-      if (!snap.empty) {
-        const list = snap.docs.map((d) => ({ ...d.data() }) as Business);
-        callback(list);
-      }
+      const list = snap.docs.map((d) => ({ ...d.data() }) as Business);
+      callback(list);
     },
     (err) => console.error("Error escuchando negocios:", err),
   );
@@ -68,10 +90,8 @@ export function subscribeToProducts(callback: (data: Product[]) => void) {
   return onSnapshot(
     collection(db, PRODUCTS_COL),
     (snap) => {
-      if (!snap.empty) {
-        const list = snap.docs.map((d) => ({ ...d.data() }) as Product);
-        callback(list);
-      }
+      const list = snap.docs.map((d) => ({ ...d.data() }) as Product);
+      callback(list);
     },
     (err) => console.error("Error escuchando productos:", err),
   );
@@ -81,11 +101,9 @@ export function subscribeToOrders(callback: (data: OrderLog[]) => void) {
   return onSnapshot(
     collection(db, ORDERS_COL),
     (snap) => {
-      if (!snap.empty) {
-        const list = snap.docs.map((d) => ({ ...d.data() }) as OrderLog);
-        list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        callback(list);
-      }
+      const list = snap.docs.map((d) => ({ ...d.data() }) as OrderLog);
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(list);
     },
     (err) => console.error("Error escuchando pedidos:", err),
   );
@@ -95,8 +113,11 @@ export function subscribeToUsers(callback: (data: AppUser[]) => void) {
   return onSnapshot(
     collection(db, USERS_COL),
     (snap) => {
-      if (!snap.empty) {
-        const list = snap.docs.map((d) => ({ ...d.data() }) as AppUser);
+      const list = snap.docs.map((d) => ({ ...d.data() }) as AppUser);
+      // Si la lista está vacía, al menos proveer el superadmin
+      if (list.length === 0) {
+        callback([initialSuperAdmin]);
+      } else {
         callback(list);
       }
     },

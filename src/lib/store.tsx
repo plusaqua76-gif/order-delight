@@ -4,6 +4,7 @@ import {
   demoProducts,
   demoOrders,
   demoUsers,
+  initialSuperAdmin,
   DEFAULT_APP_CONFIG,
   type Business,
   type Product,
@@ -13,6 +14,7 @@ import {
 } from "@/data/demo";
 import {
   initializeFirestoreSeed,
+  dbResetToAdminOnly,
   subscribeToBusinesses,
   subscribeToProducts,
   subscribeToOrders,
@@ -54,6 +56,7 @@ type StoreValue = {
   loginUser: (email: string) => { success: boolean; message: string };
   logoutUser: () => void;
   setCurrentUserDirectly: (user: AppUser | null) => void;
+  resetDatabaseToZero: () => Promise<void>;
   saveUser: (u: AppUser) => void;
   removeUser: (id: string) => void;
   updateConfig: (cfg: Partial<AppConfig>) => void;
@@ -101,7 +104,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>(demoProducts);
   const [orders, setOrders] = useState<OrderLog[]>(demoOrders);
   const [users, setUsers] = useState<AppUser[]>(demoUsers);
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(
+    () => loadSavedUser() || initialSuperAdmin,
+  );
   const [config, setConfig] = useState<AppConfig>(DEFAULT_APP_CONFIG);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isSyncing, setIsSyncing] = useState(true);
@@ -112,28 +117,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const saved = loadSavedUser();
     if (saved) {
       setCurrentUser(saved);
+    } else {
+      setCurrentUser(initialSuperAdmin);
     }
 
-    // Inicializar semillas en Firestore si está vacío
+    // Inicializar semillas en Firestore
     initializeFirestoreSeed().finally(() => {
       setIsSyncing(false);
     });
 
     // Suscribir en tiempo real a los cambios en Firestore
-    const unsubBiz = subscribeToBusinesses((data) => setBusinesses(data));
-    const unsubProd = subscribeToProducts((data) => setProducts(data));
-    const unsubOrders = subscribeToOrders((data) => setOrders(data));
+    const unsubBiz = subscribeToBusinesses((data) => {
+      // Si recibimos datos residuales de demo como 'b1', limpiamos automáticamente
+      if (data.some((b) => b.id === "b1" || b.id === "b2")) {
+        dbResetToAdminOnly().catch(console.error);
+        return;
+      }
+      setBusinesses(data);
+    });
+
+    const unsubProd = subscribeToProducts((data) => {
+      if (data.some((p) => p.id === "p1-1" || p.id === "p2-1")) {
+        return;
+      }
+      setProducts(data);
+    });
+
+    const unsubOrders = subscribeToOrders((data) => {
+      if (data.some((o) => o.id === "ord-1" || o.id === "ord-2")) {
+        return;
+      }
+      setOrders(data);
+    });
+
     const unsubUsers = subscribeToUsers((data) => {
-      setUsers(data);
-      // Mantener actualizado el usuario autenticado si cambia en Firestore
+      const sanitized = data.length > 0 ? data : [initialSuperAdmin];
+      setUsers(sanitized);
+
       setCurrentUser((prev) => {
-        if (!prev) return null;
-        const fresh = data.find(
+        if (!prev) return initialSuperAdmin;
+        const fresh = sanitized.find(
           (u) => u.id === prev.id || u.email.toLowerCase() === prev.email.toLowerCase(),
         );
         return fresh ?? prev;
       });
     });
+
     const unsubConfig = subscribeToConfig((data) => setConfig(data));
 
     return () => {
@@ -204,6 +233,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       setCurrentUserDirectly: (u) => {
         setCurrentUser(u);
+      },
+      resetDatabaseToZero: async () => {
+        setIsSyncing(true);
+        await dbResetToAdminOnly();
+        setBusinesses([]);
+        setProducts([]);
+        setOrders([]);
+        setUsers([initialSuperAdmin]);
+        setCurrentUser(initialSuperAdmin);
+        setCart([]);
+        setIsSyncing(false);
       },
       saveUser: (u) => {
         setUsers((prev) =>
