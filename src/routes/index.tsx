@@ -89,6 +89,7 @@ const VEHICLES: VehicleOption[] = [
 export function Home() {
   // Current active step (1: Vehicle, 2: Route & Location, 3: Cargo & Contact)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   // Form State
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
@@ -111,6 +112,7 @@ export function Home() {
   // Selection of vehicle advances to Step 2
   const handleSelectVehicle = (vehicleId: VehicleType) => {
     setSelectedVehicle(vehicleId);
+    setIsSubmitted(false);
     setCurrentStep(2);
   };
 
@@ -192,6 +194,23 @@ export function Home() {
     const message = lines.join("\n");
     const waLink = `https://wa.me/${CENTRAL_PHONE}?text=${encodeURIComponent(message)}`;
     window.open(waLink, "_blank");
+
+    // Limpiar completamente el formulario y restablecer al Paso 1
+    setSelectedVehicle(null);
+    setRouteScope("urbano");
+    setOrigin("");
+    setDestination("");
+    setFloorOrigin("1");
+    setFloorDest("1");
+    setHasElevator("no");
+    setTargetDate("hoy");
+    setItemsDescription("");
+    setNeedHelpers("no");
+    setClientName("");
+    setClientPhone("");
+    setAdditionalNotes("");
+    setCurrentStep(1);
+    setIsSubmitted(true);
   };
 
   return (
@@ -273,6 +292,28 @@ export function Home() {
             Completa los 3 pasos a continuación para estructurar los detalles de tu carga y
             comunicar tu solicitud directamente con la Central Nubex.
           </p>
+
+          {isSubmitted && (
+            <div className="mt-4 p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/50 text-emerald-200 text-xs sm:text-sm flex items-center justify-between gap-3 shadow-lg animate-in fade-in">
+              <div className="flex items-center gap-2.5 text-left">
+                <span className="text-lg">✅</span>
+                <div>
+                  <p className="font-bold text-white">¡Solicitud enviada a la Central Nubex!</p>
+                  <p className="text-[11px] text-emerald-300/90">
+                    Se ha abierto WhatsApp con todos los detalles y el formulario ha sido limpiado
+                    para una nueva solicitud.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSubmitted(false)}
+                className="text-emerald-400 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-emerald-800/40"
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
 
         {/* STEPPER PROGRESS BAR */}
