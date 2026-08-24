@@ -19,13 +19,12 @@ export function NubexLogo({
   subtitleText = "PITALITO · HUILA",
   className = "",
   animated = true,
-  variant = "vector-delivery",
 }: NubexLogoProps) {
   const iconDimensions = {
-    sm: "w-10 h-7",
-    md: "w-13 h-9",
-    lg: "w-18 h-12",
-    xl: "w-24 h-16",
+    sm: "w-11 h-8",
+    md: "w-14 h-10",
+    lg: "w-20 h-14",
+    xl: "w-28 h-18",
   };
 
   const textSizes = {
@@ -50,88 +49,105 @@ export function NubexLogo({
   };
 
   return (
-    <div className={`flex items-center gap-2.5 select-none ${className}`}>
-      {/* Nubex Delivery Icon: Glowing Cloud + Bold N + Fast Delivery Scooter & Speed Trails */}
+    <div className={`flex items-center gap-3 select-none ${className}`}>
+      {/* Nubex Truck / Cargo Acarreos Icon: Glowing Cloud + Bold N + Modern Transport Truck & Speed Trails */}
       <div className={`relative flex items-center justify-center shrink-0 ${iconDimensions[size]}`}>
         <svg
-          viewBox="0 0 84 52"
+          viewBox="0 0 92 56"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full overflow-visible drop-shadow-[0_0_14px_rgba(0,174,255,0.45)]"
+          className="w-full h-full overflow-visible drop-shadow-[0_0_16px_rgba(0,229,255,0.65)]"
         >
           <defs>
-            {/* Gradients combining White with Electric Blue & Cyan */}
+            {/* Gradients for Bold 'N' */}
             <linearGradient
               id="nubexNGrad"
-              x1="6"
+              x1="4"
               y1="6"
               x2="26"
-              y2="46"
+              y2="48"
               gradientUnits="userSpaceOnUse"
             >
               <stop offset="0%" stopColor="#FFFFFF" />
               <stop offset="20%" stopColor="#E0F7FF" />
-              <stop offset="50%" stopColor="#38BDF8" />
-              <stop offset="80%" stopColor="#0088FF" />
-              <stop offset="100%" stopColor="#0052CC" />
+              <stop offset="55%" stopColor="#00E5FF" />
+              <stop offset="85%" stopColor="#0088FF" />
+              <stop offset="100%" stopColor="#0047BA" />
             </linearGradient>
 
             <linearGradient
               id="nGlossGrad"
-              x1="6"
+              x1="4"
               y1="8"
               x2="20"
               y2="28"
               gradientUnits="userSpaceOnUse"
             >
-              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.8" />
-              <stop offset="60%" stopColor="#E0F2FE" stopOpacity="0.3" />
+              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.85" />
+              <stop offset="60%" stopColor="#E0F2FE" stopOpacity="0.35" />
               <stop offset="100%" stopColor="#38BDF8" stopOpacity="0" />
             </linearGradient>
 
+            {/* Cloud Outline Gradient */}
             <linearGradient
               id="cloudStrokeGrad"
               x1="4"
               y1="4"
-              x2="78"
-              y2="48"
+              x2="86"
+              y2="52"
               gradientUnits="userSpaceOnUse"
             >
               <stop offset="0%" stopColor="#FFFFFF" />
-              <stop offset="25%" stopColor="#BAE6FD" />
-              <stop offset="60%" stopColor="#00E5FF" />
-              <stop offset="100%" stopColor="#0066CC" />
+              <stop offset="30%" stopColor="#BAE6FD" />
+              <stop offset="70%" stopColor="#00E5FF" />
+              <stop offset="100%" stopColor="#0077FF" />
             </linearGradient>
 
+            {/* High-visibility Truck Gradient (Cyan to Electric Sky Blue) */}
             <linearGradient
-              id="scooterGrad"
-              x1="40"
-              y1="20"
-              x2="75"
+              id="truckCabinGrad"
+              x1="65"
+              y1="22"
+              x2="84"
               y2="45"
               gradientUnits="userSpaceOnUse"
             >
               <stop offset="0%" stopColor="#FFFFFF" />
-              <stop offset="35%" stopColor="#E0F2FE" />
-              <stop offset="70%" stopColor="#00E5FF" />
-              <stop offset="100%" stopColor="#0066D6" />
+              <stop offset="25%" stopColor="#E0F7FF" />
+              <stop offset="60%" stopColor="#00E5FF" />
+              <stop offset="100%" stopColor="#0077EE" />
             </linearGradient>
 
+            {/* Truck Cargo Body Gradient (High Contrast) */}
             <linearGradient
-              id="headlightBeam"
-              x1="72"
-              y1="36"
-              x2="84"
-              y2="40"
+              id="cargoBoxGrad"
+              x1="40"
+              y1="18"
+              x2="66"
+              y2="42"
               gradientUnits="userSpaceOnUse"
             >
-              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.9" />
-              <stop offset="40%" stopColor="#38BDF8" stopOpacity="0.7" />
+              <stop offset="0%" stopColor="#38BDF8" />
+              <stop offset="40%" stopColor="#00AEFF" />
+              <stop offset="100%" stopColor="#0055CC" />
+            </linearGradient>
+
+            {/* Headlight Beam Projector */}
+            <linearGradient
+              id="truckBeamGrad"
+              x1="82"
+              y1="38"
+              x2="94"
+              y2="42"
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.95" />
+              <stop offset="35%" stopColor="#00E5FF" stopOpacity="0.75" />
               <stop offset="100%" stopColor="#00AEFF" stopOpacity="0" />
             </linearGradient>
 
             <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="2.5" result="blur" />
+              <feGaussianBlur stdDeviation="2.8" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
@@ -139,47 +155,47 @@ export function NubexLogo({
             </filter>
           </defs>
 
-          {/* Speed Wind Streaks behind delivery vehicle & cloud */}
+          {/* Speed Wind Streaks behind Truck & Cloud */}
           <g className={animated ? "animate-nubex-speed-trails" : ""}>
             <line
-              x1="28"
-              y1="20"
-              x2="16"
-              y2="20"
+              x1="26"
+              y1="22"
+              x2="14"
+              y2="22"
               stroke="#00E5FF"
-              strokeWidth="1.5"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              opacity="0.8"
+            />
+            <line
+              x1="36"
+              y1="15"
+              x2="22"
+              y2="15"
+              stroke="#38BDF8"
+              strokeWidth="1.4"
               strokeLinecap="round"
               opacity="0.6"
             />
             <line
-              x1="38"
-              y1="14"
-              x2="26"
-              y2="14"
-              stroke="#38BDF8"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-              opacity="0.45"
-            />
-            <line
               x1="32"
-              y1="46"
-              x2="18"
-              y2="46"
-              stroke="#00A3FF"
-              strokeWidth="1.5"
+              y1="48"
+              x2="16"
+              y2="48"
+              stroke="#00E5FF"
+              strokeWidth="1.8"
               strokeLinecap="round"
-              opacity="0.7"
+              opacity="0.85"
             />
             <line
               x1="42"
-              y1="49"
-              x2="28"
-              y2="49"
-              stroke="#00E5FF"
-              strokeWidth="1"
+              y1="51"
+              x2="26"
+              y2="51"
+              stroke="#38BDF8"
+              strokeWidth="1.2"
               strokeLinecap="round"
-              opacity="0.4"
+              opacity="0.5"
             />
           </g>
 
@@ -187,115 +203,119 @@ export function NubexLogo({
           <g className={animated ? "animate-nubex-cloud" : ""}>
             {/* Outer soft glow blur */}
             <path
-              d="M22 17C22 10.37 27.37 5 34 5C39.6 5 44.3 8.8 45.6 14C47.1 13.3 48.7 13 50.5 13C56.3 13 61 17.7 61 23.5C61 24.3 60.9 25.1 60.7 25.8C63.8 27.2 66 30.3 66 34C66 38.97 61.97 43 57 43H26C20.48 43 16 38.52 16 33C16 30.7 16.8 28.6 18.1 27C16.8 25.4 16 23.3 16 21C16 18.5 17.1 16.3 18.8 14.8"
-              stroke="#00AEFF"
-              strokeWidth="4"
+              d="M20 18C20 11.37 25.37 6 32 6C37.6 6 42.3 9.8 43.6 15C45.1 14.3 46.7 14 48.5 14C54.3 14 59 18.7 59 24.5C59 25.3 58.9 26.1 58.7 26.8C61.8 28.2 64 31.3 64 35C64 39.97 59.97 44 55 44H24C18.48 44 14 39.52 14 34C14 31.7 14.8 29.6 16.1 28C14.8 26.4 14 24.3 14 22C14 19.5 15.1 17.3 16.8 15.8"
+              stroke="#00E5FF"
+              strokeWidth="4.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              opacity="0.25"
+              opacity="0.35"
               filter="url(#neonGlow)"
             />
 
             {/* Main Crisp Neon Cloud Path */}
             <path
-              d="M22 17C22 10.37 27.37 5 34 5C39.6 5 44.3 8.8 45.6 14C47.1 13.3 48.7 13 50.5 13C56.3 13 61 17.7 61 23.5C61 24.3 60.9 25.1 60.7 25.8C63.8 27.2 66 30.3 66 34C66 38.97 61.97 43 57 43H26C20.48 43 16 38.52 16 33C16 30.7 16.8 28.6 18.1 27C16.8 25.4 16 23.3 16 21C16 18.5 17.1 16.3 18.8 14.8"
+              d="M20 18C20 11.37 25.37 6 32 6C37.6 6 42.3 9.8 43.6 15C45.1 14.3 46.7 14 48.5 14C54.3 14 59 18.7 59 24.5C59 25.3 58.9 26.1 58.7 26.8C61.8 28.2 64 31.3 64 35C64 39.97 59.97 44 55 44H24C18.48 44 14 39.52 14 34C14 31.7 14.8 29.6 16.1 28C14.8 26.4 14 24.3 14 22C14 19.5 15.1 17.3 16.8 15.8"
               stroke="url(#cloudStrokeGrad)"
-              strokeWidth="2.6"
+              strokeWidth="2.8"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </g>
 
-          {/* Delivery Elements: Fast Moto / Scooter Silhouette emerging from cloud */}
+          {/* ACARREOS EMBLEM: High-Visibility Transport & Cargo Truck */}
           <g className={animated ? "animate-nubex-scooter" : ""}>
-            {/* Headlight Beam Projector */}
-            <polygon points="72,36 84,33 84,42" fill="url(#headlightBeam)" />
+            {/* Headlight Powerful Beam */}
+            <polygon points="82,37 94,32 94,44" fill="url(#truckBeamGrad)" />
 
-            {/* Scooter Back Wheel */}
-            <circle cx="49" cy="41" r="5" stroke="#00E5FF" strokeWidth="2" fill="#0B1317" />
-            <circle cx="49" cy="41" r="2" fill="#FFFFFF" />
-
-            {/* Scooter Front Wheel */}
-            <circle cx="70" cy="41" r="5" stroke="#00E5FF" strokeWidth="2" fill="#0B1317" />
-            <circle cx="70" cy="41" r="2" fill="#FFFFFF" />
-
-            {/* Delivery Box / Mochila on back */}
+            {/* Truck Cargo Body / Furgón (High Contrast Blue) */}
             <rect
-              x="43"
-              y="25"
-              width="9"
-              height="10"
-              rx="2"
-              fill="url(#scooterGrad)"
+              x="42"
+              y="20"
+              width="25"
+              height="18"
+              rx="3"
+              fill="url(#cargoBoxGrad)"
               stroke="#FFFFFF"
-              strokeWidth="1"
-            />
-            {/* Box handle / cross line */}
-            <line
-              x1="45"
-              y1="30"
-              x2="50"
-              y2="30"
-              stroke="#0B1317"
-              strokeWidth="1"
-              strokeLinecap="round"
+              strokeWidth="1.6"
             />
 
-            {/* Scooter Frame & Handlebars */}
+            {/* Cargo Stripes / Estacas details */}
+            <line x1="50" y1="20" x2="50" y2="38" stroke="#E0F2FE" strokeWidth="1" opacity="0.6" />
+            <line x1="58" y1="20" x2="58" y2="38" stroke="#E0F2FE" strokeWidth="1" opacity="0.6" />
+            <line x1="42" y1="29" x2="67" y2="29" stroke="#E0F2FE" strokeWidth="1" opacity="0.5" />
+
+            {/* Acarreos Fast Box Symbol on Cargo */}
             <path
-              d="M49 41L55 37H63L68 28H71"
-              stroke="url(#scooterGrad)"
-              strokeWidth="2.4"
-              strokeLinecap="round"
+              d="M51 24.5L54.5 22.5L58 24.5L54.5 26.5L51 24.5Z"
+              fill="#FFFFFF"
+              stroke="#00E5FF"
+              strokeWidth="0.8"
+            />
+
+            {/* Truck Cabin (Bright White/Cyan Gradient) */}
+            <path
+              d="M67 25H76L81 31V38H67V25Z"
+              fill="url(#truckCabinGrad)"
+              stroke="#FFFFFF"
+              strokeWidth="1.6"
               strokeLinejoin="round"
             />
-            <path
-              d="M63 37L70 41"
-              stroke="url(#scooterGrad)"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-            />
 
-            {/* Courier Rider Helmet */}
-            <circle cx="58" cy="24" r="3.5" fill="#FFFFFF" />
-            <path d="M57 23.5H61.5" stroke="#00C8FF" strokeWidth="1.2" strokeLinecap="round" />
+            {/* Cabin Windshield Window */}
+            <path d="M69 27H75L78.5 31H69V27Z" fill="#08141D" stroke="#00E5FF" strokeWidth="1" />
 
-            {/* Glowing Headlamp dot */}
+            {/* Front Bumper & Grill */}
+            <path d="M81 35H84V39H81V35Z" fill="#00E5FF" stroke="#FFFFFF" strokeWidth="0.8" />
+
+            {/* Truck Wheels (Heavy Duty with Chrome & Cyan Glow Hubs) */}
+            {/* Wheel 1 (Rear) */}
+            <circle cx="48" cy="42" r="5.5" stroke="#00E5FF" strokeWidth="2.2" fill="#070E14" />
+            <circle cx="48" cy="42" r="2.5" fill="#FFFFFF" />
+
+            {/* Wheel 2 (Middle) */}
+            <circle cx="61" cy="42" r="5.5" stroke="#00E5FF" strokeWidth="2.2" fill="#070E14" />
+            <circle cx="61" cy="42" r="2.5" fill="#FFFFFF" />
+
+            {/* Wheel 3 (Front Steering) */}
+            <circle cx="76" cy="42" r="5.5" stroke="#00E5FF" strokeWidth="2.2" fill="#070E14" />
+            <circle cx="76" cy="42" r="2.5" fill="#FFFFFF" />
+
+            {/* Glowing Front Headlight Dot */}
             <circle
-              cx="71"
-              cy="29"
-              r="1.5"
+              cx="82"
+              cy="36"
+              r="2"
               fill="#FFFFFF"
               className={animated ? "animate-ping" : ""}
             />
           </g>
 
-          {/* Prominent Bold Stylized Capital 'N' (Nubex Brand Monogram) */}
+          {/* Prominent Bold Stylized Capital 'N' (Nubex Monogram) */}
           <g className={animated ? "animate-nubex-n" : ""}>
             {/* Soft Shadow underneath N */}
             <path
-              d="M6 44V10C6 8.9 6.9 8 8 8H12C13.1 8 14 8.9 14 10V28.5L23.8 9.5C24.5 8.6 25.6 8 26.8 8H29C30.1 8 31 8.9 31 10V44C31 45.1 30.1 46 29 46H25C23.9 46 23 45.1 23 44V25.5L13.2 44.5C12.5 45.4 11.4 46 10.2 46H8C6.9 46 6 45.1 6 44Z"
-              fill="rgba(0, 0, 0, 0.45)"
+              d="M4 45V9C4 7.9 4.9 7 6 7H10C11.1 7 12 7.9 12 9V28.5L21.8 8.5C22.5 7.6 23.6 7 24.8 7H27C28.1 7 29 7.9 29 9V45C29 46.1 28.1 47 27 47H23C21.9 47 21 46.1 21 45V25.5L11.2 45.5C10.5 46.4 9.4 47 8.2 47H6C4.9 47 4 46.1 4 45Z"
+              fill="rgba(0, 0, 0, 0.5)"
               transform="translate(1, 2)"
             />
 
             {/* Main Gradient 'N' Shape */}
             <path
-              d="M6 43V11C6 9.34 7.34 8 9 8H11.5C13.16 8 14.5 9.34 14.5 11V27L23.2 10.1C23.9 8.8 25.3 8 26.8 8H28.5C30.16 8 31.5 9.34 31.5 11V43C31.5 44.66 30.16 46 28.5 46H26C24.34 46 23 44.66 23 43V27L14.3 43.9C13.6 45.2 12.2 46 10.7 46H9C7.34 46 6 44.66 6 43Z"
+              d="M4 44V10C4 8.34 5.34 7 7 7H9.5C11.16 7 12.5 8.34 12.5 10V27L21.2 9.1C21.9 7.8 23.3 7 24.8 7H26.5C28.16 7 29.5 8.34 29.5 10V44C29.5 45.66 28.16 47 26.5 47H24C22.34 47 21 45.66 21 44V27L12.3 44.9C11.6 46.2 10.2 47 8.7 47H7C5.34 47 4 45.66 4 44Z"
               fill="url(#nubexNGrad)"
             />
 
-            {/* Gloss & Light Reflection on Top of N blending white to blue */}
+            {/* Gloss & Light Reflection on Top of N */}
             <path
-              d="M6 24V11C6 9.34 7.34 8 9 8H11.5C13.16 8 14.5 9.34 14.5 11V20L23.2 10.1C23.9 8.8 25.3 8 26.8 8H28.5C30.16 8 31.5 9.34 31.5 11V18L14.3 32L6 24Z"
+              d="M4 24V10C4 8.34 5.34 7 7 7H9.5C11.16 7 12.5 8.34 12.5 10V20L21.2 9.1C21.9 7.8 23.3 7 24.8 7H26.5C28.16 7 29.5 8.34 29.5 10V18L12.3 32L4 24Z"
               fill="url(#nGlossGrad)"
             />
 
             {/* Highlights on the Left Vertical Bar */}
             <path
-              d="M8 12C8 10.9 8.9 10 10 10C11.1 10 12 10.9 12 12V42C12 43.1 11.1 44 10 44C8.9 44 8 43.1 8 42V12Z"
+              d="M6 11C6 9.9 6.9 9 8 9C9.1 9 10 9.9 10 11V43C10 44.1 9.1 45 8 45C6.9 45 6 44.1 6 43V11Z"
               fill="#FFFFFF"
-              opacity="0.45"
+              opacity="0.5"
             />
           </g>
         </svg>
@@ -308,16 +328,16 @@ export function NubexLogo({
           {categoryText && (
             <div className="flex items-center gap-1.5">
               <span
-                className={`font-black uppercase ${badgeSizes[size]} text-[#00E5FF] tracking-[0.24em]`}
+                className={`font-black uppercase ${badgeSizes[size]} text-[#00E5FF] tracking-[0.24em] drop-shadow-[0_0_8px_rgba(0,229,255,0.7)]`}
                 style={{ fontFamily: "'Outfit', sans-serif" }}
               >
                 {categoryText}
               </span>
-              <span className="size-1 rounded-full bg-[#00E5FF] animate-ping" />
+              <span className="size-1.5 rounded-full bg-[#00E5FF] animate-ping" />
             </div>
           )}
 
-          {/* Main Title: NUBEX (with cyan dot on X) */}
+          {/* Main Title: NUBEX */}
           <div className="flex items-center -mt-0.5">
             <span
               className={`font-display font-black tracking-tight text-white uppercase ${textSizes[size]} flex items-center`}
@@ -328,7 +348,7 @@ export function NubexLogo({
               <span className="relative inline-block">
                 X
                 <span
-                  className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-[#00E5FF] shadow-[0_0_8px_#00E5FF]"
+                  className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-[#00E5FF] shadow-[0_0_10px_#00E5FF]"
                   style={{
                     animation: animated ? "nubex-dot-glow 2s ease-in-out infinite" : "none",
                   }}
@@ -340,7 +360,7 @@ export function NubexLogo({
           {/* Subtitle: PITALITO · HUILA */}
           {showSubtitle && (
             <span
-              className={`mt-0.5 block font-semibold uppercase ${subtextSizes[size]} text-cyan-200/70`}
+              className={`mt-0.5 block font-bold uppercase ${subtextSizes[size]} text-cyan-200/90 tracking-[0.2em]`}
               style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
               {subtitleText}
