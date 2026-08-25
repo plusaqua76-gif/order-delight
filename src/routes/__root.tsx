@@ -8,14 +8,21 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-
 import { useState } from "react";
-import { Menu, MessageCircle, Truck } from "lucide-react";
+import { Menu, MessageCircle } from "lucide-react";
+import { motion } from "motion/react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { NubexLogo } from "@/components/NubexLogo";
 import { MobileMenuDrawer, MobileBottomNavigation } from "@/components/MobileNavigation";
+import {
+  TopPageProgressBar,
+  PageTransitionWrapper,
+  useActiveSection,
+  scrollToSection,
+} from "@/components/PageTransition";
+import { FloatingQuickNavigation } from "@/components/FloatingNavigation";
 
 function NotFoundComponent() {
   return (
@@ -126,11 +133,15 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <TopPageProgressBar />
       <SiteHeader onOpenMobileMenu={() => setIsMobileMenuOpen(true)} />
       <MobileMenuDrawer isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} />
-      <div className="pb-16 md:pb-0">
-        <Outlet />
+      <div className="pb-16 md:pb-0 min-h-[calc(100vh-64px)]">
+        <PageTransitionWrapper>
+          <Outlet />
+        </PageTransitionWrapper>
       </div>
+      <FloatingQuickNavigation />
       <MobileBottomNavigation onOpenMenu={() => setIsMobileMenuOpen(true)} />
       <SiteFooter />
       <Toaster position="top-center" richColors />
@@ -139,14 +150,28 @@ function RootComponent() {
 }
 
 function SiteHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
+  const activeSection = useActiveSection(["pedir-acarreo", "contacto"]);
+
   const waContactUrl =
     "https://wa.me/573125964567?text=" +
     encodeURIComponent(
       "¡Hola Nubex Central de Acarreos! Quisiera solicitar información sobre un servicio de acarreo o transporte en Pitalito.",
     );
 
+  const navItems = [
+    { id: "", label: "Inicio", icon: "🏠", isRoute: true, href: "/" },
+    {
+      id: "pedir-acarreo",
+      label: "Pide tu Acarreo",
+      icon: "🚚",
+      isRoute: false,
+      href: "#pedir-acarreo",
+    },
+    { id: "contacto", label: "Información", icon: "ℹ️", isRoute: false, href: "#contacto" },
+  ];
+
   return (
-    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-border/70 bg-background/90 backdrop-blur-md transition-all">
       <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 py-2">
         {/* Left side: Logo + Desktop Navigation Links */}
         <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 min-w-0">
@@ -165,29 +190,54 @@ function SiteHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
 
           <div className="hidden h-5 w-px bg-border/80 md:block shrink-0" />
 
-          {/* Desktop Navigation Links (Solo en pantallas medianas y grandes) */}
-          <nav className="hidden md:flex items-center gap-1.5 text-xs font-bold text-muted-foreground shrink-0 py-1">
-            <Link
-              to="/"
-              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all text-white bg-white/5 border border-white/10 hover:border-cyan-400/50 hover:text-cyan-300 text-xs whitespace-nowrap"
-            >
-              <span>🏠</span>
-              <span>Inicio</span>
-            </Link>
-            <a
-              href="#pedir-acarreo"
-              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all hover:bg-white/5 hover:text-cyan-300 text-xs whitespace-nowrap"
-            >
-              <span>🚚</span>
-              <span>Pide tu Acarreo</span>
-            </a>
-            <a
-              href="#contacto"
-              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all hover:bg-white/5 hover:text-cyan-300 text-xs whitespace-nowrap"
-            >
-              <span>ℹ️</span>
-              <span>Información</span>
-            </a>
+          {/* Desktop Navigation Links con indicador activo animado */}
+          <nav className="hidden md:flex items-center gap-1 text-xs font-bold text-muted-foreground shrink-0 py-1">
+            {navItems.map((item) => {
+              const isActive = item.id === "" ? activeSection === "" : activeSection === item.id;
+
+              if (item.isRoute) {
+                return (
+                  <Link
+                    key={item.label}
+                    to="/"
+                    className={`relative flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs transition-colors whitespace-nowrap ${
+                      isActive
+                        ? "text-cyan-300 font-black"
+                        : "text-muted-foreground hover:text-white"
+                    }`}
+                  >
+                    {isActive && (
+                      <motion.span
+                        layoutId="activeHeaderNav"
+                        className="absolute inset-0 rounded-xl bg-cyan-950/70 border border-cyan-500/40 shadow-sm shadow-cyan-500/20"
+                        transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                      />
+                    )}
+                    <span className="relative z-10">{item.icon}</span>
+                    <span className="relative z-10">{item.label}</span>
+                  </Link>
+                );
+              }
+
+              return (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  onClick={(e) => scrollToSection(e, item.id)}
+                  className={`relative flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs transition-colors whitespace-nowrap ${isActive ? "text-cyan-300 font-black" : "text-muted-foreground hover:text-white"}`}
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="activeHeaderNav"
+                      className="absolute inset-0 rounded-xl bg-cyan-950/70 border border-cyan-500/40 shadow-sm shadow-cyan-500/20"
+                      transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10">{item.icon}</span>
+                  <span className="relative z-10">{item.label}</span>
+                </a>
+              );
+            })}
           </nav>
         </div>
 
@@ -196,7 +246,8 @@ function SiteHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
           {/* Direct CTA button (visible on all screens) */}
           <a
             href="#pedir-acarreo"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-400 via-[#00E5FF] to-[#00AEFF] px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-black text-black shadow-md shadow-cyan-500/20 transition-all hover:scale-[1.02] hover:brightness-105 active:scale-[0.98] whitespace-nowrap"
+            onClick={(e) => scrollToSection(e, "pedir-acarreo")}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-400 via-[#00E5FF] to-[#00AEFF] px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-black text-black shadow-md shadow-cyan-500/20 transition-all hover:scale-[1.02] hover:brightness-105 active:scale-[0.98] whitespace-nowrap cursor-pointer"
           >
             <span>Pide tu Acarreo</span>
             <span className="text-sm">🚚</span>
@@ -207,7 +258,7 @@ function SiteHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
             href={waContactUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:inline-flex items-center justify-center p-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-all active:scale-95"
+            className="hidden sm:inline-flex items-center justify-center p-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-all active:scale-95 cursor-pointer"
             title="Contactar por WhatsApp"
           >
             <MessageCircle className="size-4" />
@@ -218,7 +269,7 @@ function SiteHeader({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
             type="button"
             onClick={onOpenMobileMenu}
             aria-label="Abrir menú de navegación móvil"
-            className="flex md:hidden items-center justify-center size-10 rounded-xl bg-white/5 hover:bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 transition-all active:scale-95 shadow-sm"
+            className="flex md:hidden items-center justify-center size-10 rounded-xl bg-white/5 hover:bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 transition-all active:scale-95 shadow-sm cursor-pointer"
           >
             <Menu className="size-5" />
           </button>
